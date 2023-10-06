@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.19)
 
 project(chronode)
 
-# set(CMAKE_CXX_STANDARD 20)
-
 # -----------------------------------------------------------------------------
 if(isMultiConfig)
 	if(NOT "Asan" IN_LIST CMAKE_CONFIGURATION_TYPES)
@@ -40,10 +38,6 @@ set(CMAKE_SHARED_LINKER_FLAGS_ASAN
 )
 # -----------------------------------------------------------------------------
 
-add_executable(test-simple "chronode.hpp" "test/test-simple.cpp")
-target_compile_features(test-simple PUBLIC cxx_std_20)
-target_include_directories(test-simple PRIVATE ${CMAKE_SOURCE_DIR})
-
 if(WIN32)
 	set(CHRONODE_COMPILE_OPTIONS
 		"/W4"
@@ -70,7 +64,7 @@ else(WIN32)
 			"-Wpedantic"
 			"-Werror"
 			"-Wno-unused-parameter"
-			# "-DCHRONODE_ENABLED"
+			"-DCHRONODE_ENABLED"
 		)
 	else(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 		set(CHRONODE_COMPILE_OPTIONS
@@ -81,13 +75,20 @@ else(WIN32)
 			"-Wpedantic"
 			"-Werror"
 			"-Wno-unused-parameter"
-			"-fmessage-length=80"
+			# "-fmessage-length=80"
 			"-fmax-errors=1"
 			# "-fcoroutines"
 			# "-D_FORTIFY_SOURCE"
-			# "-DCHRONODE_ENABLED"
+			"-DCHRONODE_ENABLED"
 		)
 	endif()
 endif()
 
-target_compile_options(test-simple PRIVATE ${CHRONODE_COMPILE_OPTIONS})
+set(CHRONODE_TESTS "node" "timer")
+
+foreach(test IN LISTS CHRONODE_TESTS)
+	add_executable("test-${test}" "chronode.hpp" "test/test-${test}.cpp")
+	target_compile_features("test-${test}" PUBLIC cxx_std_20)
+	target_include_directories("test-${test}" PRIVATE ${CMAKE_SOURCE_DIR})
+	target_compile_options("test-${test}" PRIVATE ${CHRONODE_COMPILE_OPTIONS})
+endforeach()

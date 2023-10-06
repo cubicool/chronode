@@ -15,8 +15,11 @@
 #include <iostream>
 
 #define CHRONODE if constexpr(chronode::ENABLED)
-#define CHRONODE_START(cn) CHRONODE cn.start()
+#define CHRONODE_TIMER(c) extern chronode::Timer c;
+#define CHRONODE_TIMER_INIT(c) static chronode::Timer c{};
+#define CHRONODE_START(cn, id) CHRONODE cn.start(id)
 #define CHRONODE_STOP(cn) CHRONODE cn.stop()
+#define CHRONODE_DATA(cn, dd) CHRONODE cn.data(d)
 
 using namespace std::chrono_literals;
 
@@ -72,74 +75,18 @@ private:
 	std::string _err;
 };
 
-// Ring Buffer: manages a static-sized array (of size N), permitting new values
-// by always replacing the oldest.
-template<typename T, size_t N>
-class ring_buffer {
-public:
-	using buffer_t = std::array<T, N>;
+template<typename Duration>
+constexpr std::string_view duration_str() {
+	if constexpr(std::is_same_v<Duration, std::chrono::nanoseconds>) return "ns";
+	else if constexpr(std::is_same_v<Duration, std::chrono::microseconds>) return "us";
+	else if constexpr(std::is_same_v<Duration, std::chrono::milliseconds>) return "ms";
+	else if constexpr(std::is_same_v<Duration, std::chrono::seconds>) return "s";
+	else if constexpr(std::is_same_v<Duration, std::chrono::minutes>) return "min";
+	else if constexpr(std::is_same_v<Duration, std::chrono::hours>) return "hr";
+	else return "unknown";
+}
 
-	// constexpr ring_buffer(): _data{T()} { fmt::print("ctor0\n"); }
-	// constexpr ring_buffer(const T& d): _data{} { fmt::print("ctor1\n"); }
-	// constexpr ring_buffer(std::initializer_list<T> d): _data(d) { fmt::print("ctor1\n"); }
-	// constexpr ring_buffer(const buffer_t& d): _data(d) { fmt::print("ctor2\n"); }
-
-	constexpr void add(const T& t) {
-		_data[_i % N] = t;
-
-		_i++;
-
-		// If we roll over, make sure on the second iteration we begin at a value that won't
-		// make the buffer look "underfull."
-		if(_i == std::numeric_limits<size_t>::max()) _i = N;
-	}
-
-	constexpr const auto& data() const {
-		return _data;
-	}
-
-	constexpr size_t size() const {
-		return _i >= N ? N : _i;
-	}
-
-protected:
-	buffer_t _data;
-
-	size_t _i = 0;
-};
-
-#define RING_BUFFER_T(_T, _N) \
-	using ring_buffer_t = ring_buffer<_T, _N>; \
-	using ring_buffer_t::_i; \
-	using ring_buffer_t::_data; \
-	using ring_buffer_t::size;
-
-// Arithmatic Ring Buffer: manages a static-sized array (of size N), permitting new values
-// by always replacing the oldest. Provides an "average" method for determining the mean
-// of all values (and skips indices that are not yet populated, if applicable).
-template<typename T, size_t N, typename = std::enable_if_t<std::is_arithmetic<T>::value>>
-class aring_buffer: public ring_buffer<T, N> {
-public:
-	RING_BUFFER_T(T, N)
-
-	constexpr auto average() const {
-		if(!_i) return T(0);
-
-		// We use begin() + size() to make sure we only use valid, "add()'ed" values.
-		// Otherwise, it might skew the average, factoring in a bunch of unwanted zeros.
-		return std::accumulate(
-			_data.begin(),
-			_data.begin() + size(),
-			T(0)
-		) / static_cast<T>(size());
-	}
-};
-
-using DEFAULT_ID = std::string;
-
-constexpr size_t DEFAULT_SAMPLES = 5;
-
-template<typename Unit, typename Id=DEFAULT_ID, size_t Samples=DEFAULT_SAMPLES>
+template<typename Unit, typename Id=std::string>
 class Node {
 public:
 	using unit_t = Unit;
@@ -150,12 +97,15 @@ public:
 	// using Children = std::vector<node_t*>;
 	using Ids = std::deque<const id_t*>;
 
+	// https://en.cppreference.com/w/cpp/chrono/time_point
 	struct time_point: public Clock::time_point {
 		using Clock::time_point::time_point;
 		using Clock::time_point::operator=;
 		using Clock::time_point::time_since_epoch;
 
-		constexpr time_point(const Clock::time_point& tp): Clock::time_point::time_point(tp) {}
+		constexpr time_point(const Clock::time_point& tp):
+		Clock::time_point::time_point(tp) {
+		}
 
 		constexpr auto count() const {
 			return time_since_epoch().count();
@@ -172,9 +122,16 @@ public:
 	_id(id_) {
 	}
 
+	// TODO: This breaks C++14/17 if dtor is constexpr.
 	// constexpr ~Node() {
 	~Node() {
 		for(auto* c : _children) delete c;
+	}
+
+	constexpr auto copy() const {
+		if(_parent) throw exception("Cannot copy a parented Node.");
+
+		return Node(*this);
 	}
 
 	constexpr Node& reset() {
@@ -196,21 +153,29 @@ public:
 		return *_children[_c - 1];
 	}
 
-	// TODO: This is dumb...
-	template<typename T>
+	// TODO: Create a version that uses rep/period.
+	/* template<typename T>
 	constexpr auto& sleep(const T& t) {
 		sleep_for(t);
+
+		return *this;
+	} */
+
+	constexpr auto& sleep(Clock::duration::rep r) {
+		sleep_for(unit_t(r));
+
+		return *this;
+	}
+
+	constexpr auto& sleep(Clock::duration d) {
+		sleep_for(d);
 
 		return *this;
 	}
 
 	// TODO: Check if started and throw exception!
 	constexpr auto& start() {
-		if(_start.valid()) throw exception("timer already started");
-
-		/* _children.emplace_back(name, this);
-
-		return _children.back(); */
+		if(_start.valid()) throw exception("Timer already started.");
 
 		_start = tick();
 
@@ -223,30 +188,18 @@ public:
 	constexpr auto& stop() {
 		_stop = tick();
 
-		_average.add(duration());
-
 		return *this;
 	}
 
 	// TODO: Do NOT return count(), but instead the duration object (since libfmt understands
 	// this and can handle it better.
-	constexpr auto duration(bool average=false) const {
+	constexpr auto duration() const {
 		auto d = std::chrono::duration_cast<unit_t>(_stop - _start).count();
-
-		if(average) d = _average.average();
 
 		return d < 0 ? 0 : d;
 	}
 
-	// TODO: DELETE ME!
-	constexpr void AVERAGES() const {
-		for(decltype(_average.size()) i = 0; i < _average.size(); i++) {
-			std::cout << _average.data()[i] << std::endl;
-		}
-	}
-
-	/* // TODO: Check if started/stopped and throw exception!
-	constexpr auto& call(const auto& func) {
+	/* constexpr auto& call(const auto& func) {
 		start();
 		func();
 		stop();
@@ -294,20 +247,22 @@ public:
 	}
 
 	friend std::ostream& operator<<(std::ostream& os, const node_t& n) {
-		os << n.id() << " " << n.duration();
+		os << n._id << " " << n.duration() << duration_str<unit_t>();
 
-		if(n.parent()) os
+		if(n._parent) os
 			<< " ("
 			<< std::setprecision(2)
 			<< std::setiosflags(std::ios::fixed)
-			<< (static_cast<double>(n.duration()) / static_cast<double>(n.parent()->duration())) * 100.0
+			<< (static_cast<double>(n.duration()) / static_cast<double>(n._parent->duration())) * 100.0
 			<< "%)"
 		;
 
 		os
-			<< " [id=" << n.id()
-			<< ", parent=" << (n.parent() ? n.parent()->id() : "")
-			<< ", children=" << n.children().size()
+			// << " [id=" << n._id
+			<< " [@=" << &n
+			<< ", parent=" << (n._parent ? n._parent->id() : "")
+			<< "@" << n._parent
+			<< ", children=" << n._children.size()
 			<< "] {" << n._start.count() << " -> +"
 			<< n._stop.count() - n._start.count() << "}"
 		;
@@ -316,7 +271,19 @@ public:
 	}
 
 private:
-	Node(const Node&) = delete;
+	constexpr Node(const Node& n):
+	_parent(nullptr),
+	_c(n._c),
+	_start(n._start),
+	_stop(n._stop),
+	_id(n._id) {
+		for(auto* c : n._children) {
+			_children.emplace_back(new Node(*c));
+
+			_children.back()->_parent = this;
+		}
+	}
+
 	Node& operator=(const Node&) = delete;
 
 	const Node* _parent;
@@ -327,25 +294,20 @@ private:
 	time_point _start;
 	time_point _stop;
 
-	aring_buffer<Clock::duration::rep, Samples> _average;
-
 	id_t _id;
 };
 
-template<size_t Samples=DEFAULT_SAMPLES>
-using NanoNode = Node<std::chrono::nanoseconds, DEFAULT_ID, Samples>;
-
-template<size_t Samples=DEFAULT_SAMPLES>
-using MicroNode = Node<std::chrono::microseconds, DEFAULT_ID, Samples>;
-
-template<size_t Samples=DEFAULT_SAMPLES>
-using MilliNode = Node<std::chrono::milliseconds, DEFAULT_ID, Samples>;
+using NanoNode = Node<std::chrono::nanoseconds>;
+using MicroNode = Node<std::chrono::microseconds>;
+using MilliNode = Node<std::chrono::milliseconds>;
 
 // TODO: Should I make this INHERIT from Node?
 // TODO: Why am I able to use "Node" as a valid argument name?
 template<typename Node>
 class Timer {
 public:
+	using node_t = Node;
+
 	Timer(const typename Node::id_t& id):
 	_node(id) {
 	}
@@ -360,6 +322,8 @@ public:
 	}
 
 	void stop() {
+		// This is the "stop()" action that corresponds to the implicit "start."
+		// TODO: This needs to be improved.
 		if(!_n) _node.stop();
 
 		else if(!_n->duration()) {
@@ -367,7 +331,11 @@ public:
 		}
 	}
 
-	Node& node() {
+	auto& node() {
+		return _node;
+	}
+
+	const auto& node() const {
 		return _node;
 	}
 
@@ -376,14 +344,9 @@ private:
 	Node* _n = nullptr;
 };
 
-template<size_t Samples=DEFAULT_SAMPLES>
-using NanoTimer = Timer<NanoNode<Samples>>;
-
-template<size_t Samples=DEFAULT_SAMPLES>
-using MicroTimer = Timer<MicroNode<Samples>>;
-
-template<size_t Samples=DEFAULT_SAMPLES>
-using MilliTimer = Timer<MilliNode<Samples>>;
+using NanoTimer = Timer<NanoNode>;
+using MicroTimer = Timer<MicroNode>;
+using MilliTimer = Timer<MilliNode>;
 
 namespace report {
 	template<typename Node>
@@ -434,6 +397,9 @@ namespace report {
 			_stop.count()
 		);
 	} */
+
+	// TODO: JSON
+	// TODO: ...what else?
 }
 
 }
