@@ -1,8 +1,13 @@
 # Chronode
-A modern, header-only, in-source C++ profiling library. The name is
+
+A modern, header-only, in-source C++17 profiling library. The name is
 derived from the fact that timing/measurement information is stored
 in a graph structure, where each timer (Node) is aware of it's own
 absolute time and the time relative to a parent.
+
+# Example (Pure C++)
+
+# Example (C++ & Macros)
 
 # TODO
 
@@ -11,3 +16,4 @@ absolute time and the time relative to a parent.
   any Node isn't properly stopped, etc).
 - Currently, the Timer object requires a final, weird stop(), which is
   confusing.
+- Some kind of vector-based (SVG, HTML5 Canvas, Cairo) reporting display.

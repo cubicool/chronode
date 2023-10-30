@@ -1,7 +1,8 @@
 #pragma once
 
-// TODO: Make this optional (and a toggle for cmake).
+// TODO: Make these optional (and a toggle for cmake).
 #include "tabulate.hpp"
+// #include "json.hpp"
 
 #include <chrono>
 #include <thread>
@@ -15,11 +16,11 @@
 #include <iostream>
 
 #define CHRONODE if constexpr(chronode::ENABLED)
-#define CHRONODE_TIMER(c) extern chronode::Timer c;
-#define CHRONODE_TIMER_INIT(c) static chronode::Timer c{};
-#define CHRONODE_START(cn, id) CHRONODE cn.start(id)
-#define CHRONODE_STOP(cn) CHRONODE cn.stop()
-#define CHRONODE_DATA(cn, dd) CHRONODE cn.data(d)
+#define CHRONODE_MILLITIMER(cn) extern chronode::MilliTimer cn;
+#define CHRONODE_MILLITIMER_INIT(cn, id) chronode::MilliTimer cn(id);
+#define CHRONODE_START(cn, id) CHRONODE cn.start(id);
+#define CHRONODE_STOP(cn) CHRONODE cn.stop();
+#define CHRONODE_DATA(cn, dd) CHRONODE cn.data(d);
 
 using namespace std::chrono_literals;
 
@@ -77,6 +78,7 @@ private:
 
 template<typename Duration>
 constexpr std::string_view duration_str() {
+// std::string duration_str() {
 	if constexpr(std::is_same_v<Duration, std::chrono::nanoseconds>) return "ns";
 	else if constexpr(std::is_same_v<Duration, std::chrono::microseconds>) return "us";
 	else if constexpr(std::is_same_v<Duration, std::chrono::milliseconds>) return "ms";
@@ -108,7 +110,7 @@ public:
 		}
 
 		constexpr auto count() const {
-			return time_since_epoch().count();
+			return std::chrono::time_point_cast<unit_t>(*this).time_since_epoch().count();
 		}
 
 		constexpr bool valid() const {
@@ -153,14 +155,6 @@ public:
 		return *_children[_c - 1];
 	}
 
-	// TODO: Create a version that uses rep/period.
-	/* template<typename T>
-	constexpr auto& sleep(const T& t) {
-		sleep_for(t);
-
-		return *this;
-	} */
-
 	constexpr auto& sleep(Clock::duration::rep r) {
 		sleep_for(unit_t(r));
 
@@ -198,6 +192,10 @@ public:
 
 		return d < 0 ? 0 : d;
 	}
+
+	// TODO: Offer a method that will return he "relative" duration; maybe this should be a
+	// boolean parameter to duration() above?
+	// (static_cast<double>(duration()) / static_cast<double>(_parent->duration())) * 100.0
 
 	/* constexpr auto& call(const auto& func) {
 		start();
@@ -238,12 +236,12 @@ public:
 		return ids_;
 	}
 
-	constexpr const auto& start_point() const {
-		return _start;
+	constexpr auto start_point() const {
+		return _start.count();
 	}
 
-	constexpr const auto& stop_point() const {
-		return _stop;
+	constexpr auto stop_point() const {
+		return _stop.count();
 	}
 
 	friend std::ostream& operator<<(std::ostream& os, const node_t& n) {
@@ -308,11 +306,11 @@ class Timer {
 public:
 	using node_t = Node;
 
-	Timer(const typename Node::id_t& id):
+	Timer(const typename node_t::id_t& id):
 	_node(id) {
 	}
 
-	void start(const typename Node::id_t& id) {
+	void start(const typename node_t::id_t& id) {
 		// If this is the FIRST start, go ahead and start our "toplevel" timer, which will hold this
 		// first (requested) timer AND all subsequent children.
 		// TODO: Pass ctor Id into THIS START ONLY!
@@ -361,6 +359,32 @@ namespace report {
 	}
 
 	template<typename Node>
+	void ostream_json(const Node& n, std::ostream& os, size_t depth=0, bool comma=false) {
+		auto indent = [&os, depth](size_t extra=0) -> std::ostream& {
+			for(size_t i = 0; i < depth + extra; i++) os << "\t";
+
+			return os;
+		};
+
+		indent() << "{" << std::endl;
+		indent(1) << "\"id\": \"" << n.id() << "\"," << std::endl;
+		indent(1) << "\"unit\": \"" << duration_str<typename Node::unit_t>() << "\"," << std::endl;
+		indent(1) << "\"start\": " << n.start_point() << "," << std::endl;
+		indent(1) << "\"stop\": " << n.stop_point() << "," << std::endl;
+		indent(1) << "\"children\": [" << std::endl;
+
+		for(size_t i = 0; i < n.children().size(); i++) ostream_json(
+			*n.children()[i],
+			os,
+			depth + 2,
+			i < n.children().size() - 1
+		);
+
+		indent(1) << "]" << std::endl;
+		indent() << "}" << (comma ? "," : "") << std::endl;
+	}
+
+	template<typename Node>
 	void tabulate(const Node& n, tabulate::Table& table, size_t depth=0) {
 		std::ostringstream os;
 
@@ -372,8 +396,8 @@ namespace report {
 			os.str(),
 			std::to_string(n.children().size()),
 			std::to_string(n.duration()),
-			std::to_string(n.start_point().count()),
-			"+" + std::to_string(n.stop_point().count() - n.start_point().count())
+			std::to_string(n.start_point()),
+			"+" + std::to_string(n.stop_point() - n.start_point())
 		});
 
 		for(const auto* c : n.children()) tabulate(*c, table, depth + 1);
@@ -398,8 +422,64 @@ namespace report {
 		);
 	} */
 
-	// TODO: JSON
-	// TODO: ...what else?
+#if 0
+	template<typename Node>
+	const nlohmann::json& json(const Node& n, nlohmann::json* j=nullptr, size_t depth=0) {
+		thread_local static nlohmann::json _json{};
+
+		if(!j) {
+			_json = nlohmann::json{};
+
+			j = &_json;
+		}
+
+		(*j)["id"] = n.id();
+		(*j)["start"] = n.start_point().count();
+		(*j)["stop"] = n.stop_point().count();
+		(*j)["children"] = nlohmann::json::array();
+
+		// for(const auto* c : n.children()) rows_spans(*c, dr, depth + 1);
+
+		return _json;
+	}
+#endif
+
+	using Span = std::pair<Clock::duration::rep, Clock::duration::rep>;
+	using Spans = std::vector<Span>;
+	using RowsSpans = std::vector<Spans>;
+
+	// TODO: Should this be a method on Node instead?
+	template<typename Node>
+	// const auto& rows_spans(const Node& n, RowsSpans* dr=nullptr, size_t depth=0) {
+	const RowsSpans& rows_spans(const Node& n, RowsSpans* dr=nullptr, size_t depth=0) {
+		thread_local static RowsSpans _dr{};
+
+		// The reason we pass a pointer to something that is statically available is because
+		// it's ALSO USED as an indicator the RowsSpans object needs to be reset/cleared.
+		if(!dr) {
+			_dr.clear();
+
+			dr = &_dr;
+		}
+
+		// if(dr->size() <= depth) dr->emplace_back(Spans{});
+		// XXX: This is possible (instead of the above) because emplace_back will forward the
+		// parameters to the underlying/templated type for us! Same below...
+		if(dr->size() <= depth) dr->emplace_back();
+
+		// (*dr)[depth].emplace_back(Span{n.start_point().count(), n.stop_point().count()});
+		(*dr)[depth].emplace_back(n.start_point(), n.stop_point());
+
+		std::cout
+			<< "depth=" << depth
+			<< " adding " << n.start_point()
+			<< ", " << n.stop_point() << std::endl
+		;
+
+		for(const auto* c : n.children()) rows_spans(*c, dr, depth + 1);
+
+		return _dr;
+	}
 }
 
 }

@@ -84,11 +84,28 @@ else(WIN32)
 	endif()
 endif()
 
-set(CHRONODE_TESTS "node" "timer")
+set(CHRONODE_TESTS "node" "timer" "timer-macro")
+
+# list(APPEND CHRONODE_TESTS
+# 	(
+# 		"timer-macro-multifile"
+# 		"timer-macro-multifile0"
+# 		"timer-macro-multifile1"
+# 	)
+# )
 
 foreach(test IN LISTS CHRONODE_TESTS)
 	add_executable("test-${test}" "chronode.hpp" "test/test-${test}.cpp")
-	target_compile_features("test-${test}" PUBLIC cxx_std_20)
+	target_compile_features("test-${test}" PUBLIC cxx_std_17)
 	target_include_directories("test-${test}" PRIVATE ${CMAKE_SOURCE_DIR})
 	target_compile_options("test-${test}" PRIVATE ${CHRONODE_COMPILE_OPTIONS})
 endforeach()
+
+add_executable(test-timer-macro-multifile "chronode.hpp"
+	"test/test-timer-macro-multifile.cpp"
+	"test/test-timer-macro-multifile0.cpp"
+	"test/test-timer-macro-multifile1.cpp"
+)
+target_compile_features(test-timer-macro-multifile PUBLIC cxx_std_17)
+target_include_directories(test-timer-macro-multifile PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_options(test-timer-macro-multifile PRIVATE ${CHRONODE_COMPILE_OPTIONS})

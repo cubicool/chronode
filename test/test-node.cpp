@@ -15,6 +15,23 @@ template <typename T, T N>
 [[maybe_unused]] constexpr auto r_10 = []() { return rand_1n<size_t, 10>(); };
 [[maybe_unused]] constexpr auto r_500ms = []() { return std::chrono::milliseconds(rand_1n<size_t, 500>()); };
 
+#if 0
+template<typename Node, typename... Nodes>
+void add_nodes(Node& node, const Nodes&... nodes) {
+	node.start()
+
+	for(const auto& n : {nodes...}) {
+		auto c = node.child(n.first).start();
+
+		chronode::sleep(n.second);
+
+		c.stop();
+	}
+
+	node.stop();
+}
+#endif
+
 int main(int argc, char** argv) {
 	CHRONODE {
 		auto n = chronode::MilliNode("n");
