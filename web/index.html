@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>AlphaPixel | Chronode</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" media="screen"> -->
+<link rel="stylesheet" href="lib/materialize.css" media="screen">
+<link rel="stylesheet" href="lib/style.css" media="screen">
+
+</head>
+<body>
+
+<header>
+	<div class="container-fluid">
+		<div class="row valign-wrapper" style="margin-bottom: 0px;">
+			<form class="col s12" action="#">
+				<div class="file-field input-field">
+					<div class="btn waves-effect waves-light">
+						<i class="material-icons left">file_upload</i>
+						<span>Import JSON</span>
+						<input type="file" id="inputfile">
+					</div>
+					<div class="file-path-wrapper">
+						<input class="file-path validate" type="text" id="inputfile_name">
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+</header>
+
+<main>
+	<div id="_canvasContainer" class="_canvasContainer">
+		<canvas id="_canvas">Your browser does not support the HTML canvas tag.</canvas>
+	</div>
+</main>
+
+<footer>
+	<div class="container-fluid">
+		<div class="row valign-wrapper" style="margin-bottom: 0px;">
+			TODO!
+		</div>
+	</div>
+</footer>
+
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.js.css"> -->
+<script src="lib/materialize.js"></script>
+<script src="lib/chronode.js"></script>
+
+<script>
+	const test = new URL(location.href).searchParams.get("test");
+
+	if(test) {
+		chronode({
+			"id": "MilliTimer",
+			"start": 623959875,
+			"stop": 623959986,
+			"children": [
+				{
+					"id": "foo",
+					"start": 623959875,
+					"stop": 623959936,
+					"children": [
+						{
+							"id": "bar",
+							"start": 623959885,
+							"stop": 623959936,
+							"children": [
+								{
+									"id": "baz",
+									"start": 623959905,
+									"stop": 623959936,
+									"children": [
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"id": "foofoo",
+					"start": 623959936,
+					"stop": 623959986,
+					"children": [
+					]
+				}
+			]
+		});
+	}
+</script>
+
+</body>
+</html>

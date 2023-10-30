@@ -1,0 +1,132 @@
+/* https://materializecss.com/color.html#palette */
+
+html, body {
+	margin: 0;
+	width: 100%;
+	height: 100%;
+	min-height: 100%;
+	background-color: #888;
+}
+
+body {
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+header {
+	flex: 1;
+	/* border-bottom: solid 1px grey; */
+	margin-bottom: 0px;
+}
+
+main {
+	flex: 8;
+	overflow-y: auto;
+	background: rgb(230, 230, 230);
+	padding: 5px;
+	margin: 0px;
+	border-top: solid 1px grey;
+	border-bottom: solid 1px grey;
+	position: relative;
+}
+
+footer {
+	flex: 1;
+	/* background: gray; */
+	/* border-top: solid 1px grey; */
+	padding-top: 0px;
+}
+
+canvas {
+	background-color: #aaa;
+	display: block;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+	height: 100%;
+	/* image-rendering: pixelated; */
+}
+
+/* TODO: Figure out a better way to "control" the canvas, even if that means using the
+whole "container" approach (that is so annoying to me).
+
+https://www.w3schools.com/CSSref/css_inherit.php */
+._canvasContainer {
+	width: 100%;
+	height: 100%;
+}
+
+.btn {
+	background: #36f;
+}
+
+.btn-floating {
+	background: #36f;
+}
+
+.fixed-action-btn {
+	position: absolute;
+	right: 10px;
+	bottom: 10px;
+}
+
+/* label color */
+.input-field label {
+	color: #000;
+}
+
+.input-field input[type=text] {}
+
+/* label focus color */
+.input-field input[type=text]:focus + label {
+	color: #fff;
+}
+
+/* label underline focus color */
+.input-field input[type=text]:focus {
+	color: #fff;
+	border-bottom: 1px solid #ff0;
+	box-shadow: 0 1px 0 0 #ff0;
+}
+
+/* valid color */
+.input-field input[type=text].valid {
+	color: #fff;
+	border-bottom: 1px solid #000;
+	box-shadow: 0 1px 0 0 #000;
+}
+
+/* invalid color */
+.input-field input[type=text].invalid {
+	border-bottom: 1px solid #000;
+	box-shadow: 0 1px 0 0 #000;
+}
+
+/* icon prefix focus color */
+.input-field .prefix.active {
+	color: #ff0;
+}
+
+/* span.value {
+	margin: 0px;
+	padding: 0px;
+	background: rgb(60, 100, 240);
+} */
+
+input[type=range] + .thumb.active .value {
+	color: #fff;
+	margin: 0px;
+	/* padding: 0px; */
+	padding-top: 7px;
+	font-size: 10px;
+	font-weight: bold;
+}
+
+/* #chartDiv {
+	position: relative;
+	height: 100%;
+	width: 100%;
+} */

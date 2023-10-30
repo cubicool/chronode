@@ -7,7 +7,15 @@ absolute time and the time relative to a parent.
 
 # Example (Pure C++)
 
+```c++
+// Soon!
+```
+
 # Example (C++ & Macros)
+
+```c++
+// Soon!
+```
 
 # TODO
 
@@ -17,3 +25,8 @@ absolute time and the time relative to a parent.
 - Currently, the Timer object requires a final, weird stop(), which is
   confusing.
 - Some kind of vector-based (SVG, HTML5 Canvas, Cairo) reporting display.
+- Introduce a "Profile" class that will call the `copy()` method of a Node and
+  manage some variable number of measurements, allowing both individual report
+  inspection and amalgamated/averaged reports. This will need to be handled by
+  the reporting functions explicitly so that any kind of "visualization" app
+  can properly manage the data.
