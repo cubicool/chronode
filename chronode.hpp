@@ -2,7 +2,6 @@
 
 // TODO: Make these optional (and a toggle for cmake).
 #include "tabulate.hpp"
-// #include "json.hpp"
 
 #include <chrono>
 #include <thread>
@@ -124,17 +123,32 @@ public:
 	_id(id_) {
 	}
 
+	// TODO: I'd prefer making this private, and doing an explicity copy() method.
+	constexpr Node(const Node& n):
+	_parent(nullptr),
+	_c(n._c),
+	_start(n._start),
+	_stop(n._stop),
+	_id(n._id) {
+		for(auto* c : n._children) {
+			_children.emplace_back(new Node(*c));
+
+			_children.back()->_parent = this;
+		}
+	}
+
 	// TODO: This breaks C++14/17 if dtor is constexpr.
 	// constexpr ~Node() {
 	~Node() {
 		for(auto* c : _children) delete c;
 	}
 
+	/* // TODO: See copy-constructor above.
 	constexpr auto copy() const {
 		if(_parent) throw exception("Cannot copy a parented Node.");
 
 		return Node(*this);
-	}
+	} */
 
 	constexpr Node& reset() {
 		_start = _stop = time_point{};
@@ -269,19 +283,6 @@ public:
 	}
 
 private:
-	constexpr Node(const Node& n):
-	_parent(nullptr),
-	_c(n._c),
-	_start(n._start),
-	_stop(n._stop),
-	_id(n._id) {
-		for(auto* c : n._children) {
-			_children.emplace_back(new Node(*c));
-
-			_children.back()->_parent = this;
-		}
-	}
-
 	Node& operator=(const Node&) = delete;
 
 	const Node* _parent;
@@ -325,7 +326,7 @@ public:
 		if(!_n) _node.stop();
 
 		else if(!_n->duration()) {
-			_n = const_cast<Node*>(_n->stop().parent());
+			_n = const_cast<node_t*>(_n->stop().parent());
 		}
 	}
 
@@ -338,15 +339,57 @@ public:
 	}
 
 private:
-	Node _node;
-	Node* _n = nullptr;
+	node_t _node;
+	node_t* _n = nullptr;
 };
 
 using NanoTimer = Timer<NanoNode>;
 using MicroTimer = Timer<MicroNode>;
 using MilliTimer = Timer<MilliNode>;
 
+template<typename Node>
+class Profile {
+public:
+	using node_t = Node;
+	using data_t = std::deque<node_t>;
+
+	Profile(size_t size):
+	_size(size) {
+	}
+
+	constexpr void add(const node_t& node) {
+		if(_data.size() >= _size) _data.pop_back();
+
+		_data.push_front(node);
+	}
+
+	constexpr const auto& data() const {
+		return _data;
+	}
+
+	constexpr size_t size() const {
+		return _data.size();
+	}
+
+protected:
+	size_t _size;
+
+	data_t _data;
+};
+
+using NanoProfile = Profile<NanoNode>;
+using MicroProfile = Profile<MicroNode>;
+using MilliProfile = Profile<MilliNode>;
+
 namespace report {
+	namespace util {
+		auto& indent(std::ostream& os, size_t depth, const std::string& str="\t") {
+			for(size_t i = 0; i < depth; i++) os << str;
+
+			return os;
+		};
+	}
+
 	template<typename Node>
 	void ostream(const Node& n, std::ostream& os, size_t depth=0) {
 		for(size_t i = 0; i < depth; i++) os << "  ";
@@ -360,18 +403,14 @@ namespace report {
 
 	template<typename Node>
 	void ostream_json(const Node& n, std::ostream& os, size_t depth=0, bool comma=false) {
-		auto indent = [&os, depth](size_t extra=0) -> std::ostream& {
-			for(size_t i = 0; i < depth + extra; i++) os << "\t";
+		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
-			return os;
-		};
-
-		indent() << "{" << std::endl;
-		indent(1) << "\"id\": \"" << n.id() << "\"," << std::endl;
-		indent(1) << "\"unit\": \"" << duration_str<typename Node::unit_t>() << "\"," << std::endl;
-		indent(1) << "\"start\": " << n.start_point() << "," << std::endl;
-		indent(1) << "\"stop\": " << n.stop_point() << "," << std::endl;
-		indent(1) << "\"children\": [" << std::endl;
+		ind() << "{" << std::endl;
+		ind(1) << "\"id\": \"" << n.id() << "\"," << std::endl;
+		ind(1) << "\"unit\": \"" << duration_str<typename Node::unit_t>() << "\"," << std::endl;
+		ind(1) << "\"start\": " << n.start_point() << "," << std::endl;
+		ind(1) << "\"stop\": " << n.stop_point() << "," << std::endl;
+		ind(1) << "\"children\": [" << std::endl;
 
 		for(size_t i = 0; i < n.children().size(); i++) ostream_json(
 			*n.children()[i],
@@ -380,9 +419,18 @@ namespace report {
 			i < n.children().size() - 1
 		);
 
-		indent(1) << "]" << std::endl;
-		indent() << "}" << (comma ? "," : "") << std::endl;
+		ind(1) << "]" << std::endl;
+		ind() << "}" << (comma ? "," : "") << std::endl;
 	}
+
+	/* template<typename Profile>
+	void ostream_json(const Profile& p, std::ostream& os) {
+		os << "[" << std::endl;
+
+		// for(const auto& n : p.data()) ostream_json(n, os, 1);
+
+		os << "]" << std::endl;
+	} */
 
 	template<typename Node>
 	void tabulate(const Node& n, tabulate::Table& table, size_t depth=0) {
@@ -423,27 +471,6 @@ namespace report {
 	} */
 
 #if 0
-	template<typename Node>
-	const nlohmann::json& json(const Node& n, nlohmann::json* j=nullptr, size_t depth=0) {
-		thread_local static nlohmann::json _json{};
-
-		if(!j) {
-			_json = nlohmann::json{};
-
-			j = &_json;
-		}
-
-		(*j)["id"] = n.id();
-		(*j)["start"] = n.start_point().count();
-		(*j)["stop"] = n.stop_point().count();
-		(*j)["children"] = nlohmann::json::array();
-
-		// for(const auto* c : n.children()) rows_spans(*c, dr, depth + 1);
-
-		return _json;
-	}
-#endif
-
 	using Span = std::pair<Clock::duration::rep, Clock::duration::rep>;
 	using Spans = std::vector<Span>;
 	using RowsSpans = std::vector<Spans>;
@@ -480,6 +507,7 @@ namespace report {
 
 		return _dr;
 	}
+#endif
 }
 
 }

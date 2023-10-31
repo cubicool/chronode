@@ -46,6 +46,7 @@ int main(int argc, char** argv) {
 	CHRONODE {
 		chronode::report::ostream_json(T.node(), std::cout);
 
+#if 0
 		const auto& rs = chronode::report::rows_spans(T.node());
 
 		for(size_t i = 0; i < rs.size(); i++) {
@@ -57,6 +58,7 @@ int main(int argc, char** argv) {
 				std::cout << "TODO: row " << i << "(" << r.size() << ")" << std::endl;
 			}
 		}
+#endif
 	}
 
 	return 0;

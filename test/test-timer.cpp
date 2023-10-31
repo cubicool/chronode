@@ -26,12 +26,13 @@ void add_nodes(Timer& timer, const Nodes&... nodes) {
 
 int main(int argc, char** argv) {
 	CHRONODE {
-		// auto t = chronode::MicroTimer("timer");
+		auto p = chronode::MilliProfile(5);
 		auto t = chronode::MilliTimer("timer");
-		// auto n = r_10();
+		auto n = r_10();
+
 
 		// TODO: Make a variadic template function to handle these calls!
-		// for(decltype(n) i = 0; i < n; i++) {
+		for(decltype(n) i = 0; i < n; i++) {
 			t.start("A"); { chronode::sleep_for(10ms); t.start("a"); { chronode::sleep_for(10ms); }; t.stop(); }; t.stop();
 			t.start("B"); { chronode::sleep_for(20ms); }; t.stop();
 			t.start("C"); { chronode::sleep_for(30ms); }; t.stop();
@@ -45,11 +46,13 @@ int main(int argc, char** argv) {
 
 			t.stop();
 
-			// chronode::report::ostream(t.node(), std::cout);
+			chronode::report::ostream(t.node(), std::cout);
+
+			p.add(t.node());
 
 			// This stupid hack skips the last reset (so the Tablulate works below).
-			// if(i < n - 1) t.node().reset();
-		// }
+			if(i < n - 1) t.node().reset();
+		}
 
 #if 0
 		tabulate::Table table;
@@ -75,6 +78,10 @@ int main(int argc, char** argv) {
 #endif
 
 		chronode::report::ostream_json(t.node(), std::cout);
+
+		for(const auto& i : p.data()) {
+			std::cout << i.id() << ": " << i.duration() << std::endl;
+		}
 	}
 
 	return 0;

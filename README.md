@@ -30,3 +30,6 @@ absolute time and the time relative to a parent.
   inspection and amalgamated/averaged reports. This will need to be handled by
   the reporting functions explicitly so that any kind of "visualization" app
   can properly manage the data.
+- Timer should probably remove the `node()` method, adding Node/Timer
+  overloading when necessary. Furthermore, AT LEAST a `reset()` will need to be
+  added (since we can't call `node().reset()` anymore).
