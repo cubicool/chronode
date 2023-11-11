@@ -30,7 +30,6 @@ int main(int argc, char** argv) {
 		auto t = chronode::MilliTimer("timer");
 		auto n = r_10();
 
-
 		// TODO: Make a variadic template function to handle these calls!
 		for(decltype(n) i = 0; i < n; i++) {
 			t.start("A"); { chronode::sleep_for(10ms); t.start("a"); { chronode::sleep_for(10ms); }; t.stop(); }; t.stop();
@@ -46,7 +45,8 @@ int main(int argc, char** argv) {
 
 			t.stop();
 
-			chronode::report::ostream(t.node(), std::cout);
+			// chronode::report::ostream(t.node(), std::cout);
+			std::cout << t.node() << std::endl;
 
 			p.add(t.node());
 
@@ -77,11 +77,11 @@ int main(int argc, char** argv) {
 		std::cout << table << std::endl;
 #endif
 
-		chronode::report::ostream_json(t.node(), std::cout);
+		// chronode::report::ostream_json(t.node(), std::cout);
 
-		for(const auto& i : p.data()) {
-			std::cout << i.id() << ": " << i.duration() << std::endl;
-		}
+		// for(const auto& i : p.data()) std::cout << i << std::endl;
+
+		// chronode::report::ostream_json(p, std::cout);
 	}
 
 	return 0;

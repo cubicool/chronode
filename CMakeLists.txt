@@ -97,7 +97,7 @@ set(CHRONODE_TESTS "timer")
 
 foreach(test IN LISTS CHRONODE_TESTS)
 	add_executable("test-${test}" "chronode.hpp" "test/test-${test}.cpp")
-	target_compile_features("test-${test}" PUBLIC cxx_std_17)
+	target_compile_features("test-${test}" PUBLIC cxx_std_20)
 	target_include_directories("test-${test}" PRIVATE ${CMAKE_SOURCE_DIR})
 	target_compile_options("test-${test}" PRIVATE ${CHRONODE_COMPILE_OPTIONS})
 endforeach()

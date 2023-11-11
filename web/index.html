@@ -1,35 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>AlphaPixel | Chronode</title>
-
-<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-<!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" media="screen"> -->
-<link rel="stylesheet" href="lib/materialize.css" media="screen">
-<link rel="stylesheet" href="lib/style.css" media="screen">
-
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>AlphaPixel | Chronode</title>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	<!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" media="screen"> -->
+	<link rel="stylesheet" href="lib/materialize.css" media="screen">
+	<link rel="stylesheet" href="lib/style.css" media="screen">
 </head>
+
 <body>
 
 <header>
 	<div class="container-fluid">
-		<div class="row valign-wrapper" style="margin-bottom: 0px;">
-			<form class="col s12" action="#">
-				<div class="file-field input-field">
-					<div class="btn waves-effect waves-light">
-						<i class="material-icons left">file_upload</i>
-						<span>Import JSON</span>
-						<input type="file" id="inputfile">
-					</div>
-					<div class="file-path-wrapper">
-						<input class="file-path validate" type="text" id="inputfile_name">
-					</div>
-				</div>
-			</form>
+		<div class="row" style="display: flex;">
+			<a class="waves-effect waves-light btn" id="fileDialogButton">
+				<i class="material-icons left">file_upload</i>
+				Select File
+			</a>
+			<input type="file" id="fileInput" style="display: none;">
+
+			<ul class="pagination" style="margin: 0px;">
+				<li class="waves-effect" id="pp"><a href="#!"><i class="material-icons">chevron_left</i></a></li>
+				<!-- <li> will be inserted dynamically in JavaScript. -->
+				<li class="waves-effect" id="pn"><a href="#!"><i class="material-icons">chevron_right</i></a></li>
+			</ul>
 		</div>
 	</div>
 </header>
@@ -42,7 +38,7 @@
 
 <footer>
 	<div class="container-fluid">
-		<div class="row valign-wrapper" style="margin-bottom: 0px;">
+		<div class="row valign-wrapper">
 			TODO!
 		</div>
 	</div>
@@ -53,10 +49,124 @@
 <script src="lib/chronode.js"></script>
 
 <script>
+	var DATA = [];
+	var INDEX = 0;
+
+	// TODO: This needs to be MOVED! The variable "canvas" is a global from chronode.js...
+	// canvasScalePPI(canvas.width, canvas.height);
+
+	function paginateCreateList(n) {
+		// Creates an element using the numeric index "n"; for example:
+		// <li class="waves-effect" id="p3"><a href="#!">3</a></li>
+		function paginateCreateListItem(i) {
+			const li = document.createElement("li");
+
+			li.className = "waves-effect";
+			li.id = `p${i}`;
+
+			const a = document.createElement("a");
+
+			a.href = "#!";
+			a.textContent = `${i}`;
+
+			li.appendChild(a);
+
+			return li;
+		}
+
+		const ul = document.querySelector("ul");
+
+		for(var i = 1; i <= n; i++) ul.insertBefore(paginateCreateListItem(i), ul.children[i]);
+
+		document.querySelectorAll(".pagination .waves-effect").forEach(item => {
+			item.addEventListener("click", function() {
+				const id = this.id;
+				const ap = document.querySelector(".pagination .active");
+
+				var p = null;
+
+				// Page Previous (pp).
+				if(id === "pp") {
+					if(ap.id === "p1") return;
+
+					p = +ap.id.substring(1) - 1;
+				}
+
+				// Page Next (pn).
+				else if(id === "pn") {
+					if(ap.id === `p${DATA.length}`) return;
+
+					p = +ap.id.substring(1) + 1;
+				}
+
+				else p = +id.substring(1);
+
+				paginateShowContent(p);
+			});
+		});
+
+		return ul;
+	}
+
+	// Sets the numeric index "n" as the active page.
+	function paginateShowContent(n) {
+		console.log(`paginateShowContent(${n})`);
+
+		/* document.querySelectorAll(".page-content").forEach(content => {
+			content.style.display = "none";
+		});
+
+		document.getElementById(`p${n}-content`).style.display = "block"; */
+
+		document.querySelectorAll(".pagination li").forEach(item => {
+			item.classList.remove("active");
+		});
+
+		document.getElementById(`p${n}`).classList.add("active");
+
+		if(DATA.length > n - 1) {
+			console.log(`paginateShowContent:chronode(${n - 1})`);
+
+			chronode("_canvas", DATA[n - 1]);
+		}
+	}
+
+	document.addEventListener("DOMContentLoaded", function() {
+		M.AutoInit();
+
+		const fileDialogButton = document.getElementById("fileDialogButton");
+		const fileInput = document.getElementById("fileInput");
+
+		fileDialogButton.addEventListener("click", function() {
+			fileInput.click();
+		});
+
+		fileInput.addEventListener("change", function() {
+			const selectedFile = fileInput.files[0];
+
+			if(selectedFile) {
+				const reader = new FileReader();
+
+				reader.onload = function(ev) {
+					DATA = JSON.parse(ev.target.result);
+
+					if(!Array.isArray(DATA)) DATA = [DATA];
+
+					chronode("_canvas", DATA[0]);
+
+					paginateCreateList(DATA.length);
+					paginateShowContent(1);
+				};
+
+				reader.readAsText(selectedFile);
+			}
+		});
+	});
+
 	const test = new URL(location.href).searchParams.get("test");
 
 	if(test) {
-		chronode({
+		chronode("_canvas", {
 			"id": "MilliTimer",
 			"start": 623959875,
 			"stop": 623959986,
@@ -95,4 +205,5 @@
 </script>
 
 </body>
+
 </html>

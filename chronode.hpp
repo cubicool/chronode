@@ -16,8 +16,8 @@
 
 #define CHRONODE if constexpr(chronode::ENABLED)
 #define CHRONODE_MILLITIMER(cn) extern chronode::MilliTimer cn;
-#define CHRONODE_MILLITIMER_INIT(cn, id) chronode::MilliTimer cn(id);
-#define CHRONODE_START(cn, id) CHRONODE cn.start(id);
+#define CHRONODE_MILLITIMER_INIT(cn, n) chronode::MilliTimer cn(n);
+#define CHRONODE_START(cn, n) CHRONODE cn.start(n);
 #define CHRONODE_STOP(cn) CHRONODE cn.stop();
 #define CHRONODE_DATA(cn, dd) CHRONODE cn.data(d);
 
@@ -75,6 +75,14 @@ private:
 	std::string _err;
 };
 
+namespace util {
+	auto& indent(std::ostream& os, size_t depth, const std::string& str="\t") {
+		for(size_t i = 0; i < depth; i++) os << str;
+
+		return os;
+	};
+}
+
 template<typename Duration>
 constexpr std::string_view duration_str() {
 // std::string duration_str() {
@@ -87,16 +95,30 @@ constexpr std::string_view duration_str() {
 	else return "unknown";
 }
 
-template<typename Unit, typename Id=std::string>
+/* template<typename Duration>
+constexpr auto is_duration() {
+	return std::is_same_v<
+		Duration,
+		std::chrono::duration<typename Duration::rep, typename Duration::period>
+	>;
+} */
+
+template<typename Duration>
+constexpr bool is_duration_v = std::is_same_v<
+	Duration,
+	std::chrono::duration<typename Duration::rep, typename Duration::period>
+>;
+
+// template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
+template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
 class Node {
 public:
-	using unit_t = Unit;
-	using id_t = Id;
-	using node_t = Node<unit_t, id_t>;
+	using duration_t = Duration;
+	using node_t = Node<duration_t>;
 
 	using Children = std::deque<node_t*>;
 	// using Children = std::vector<node_t*>;
-	using Ids = std::deque<const id_t*>;
+	// using Path = std::deque<const std::string&>;
 
 	// https://en.cppreference.com/w/cpp/chrono/time_point
 	struct time_point: public Clock::time_point {
@@ -109,7 +131,7 @@ public:
 		}
 
 		constexpr auto count() const {
-			return std::chrono::time_point_cast<unit_t>(*this).time_since_epoch().count();
+			return std::chrono::time_point_cast<duration_t>(*this).time_since_epoch().count();
 		}
 
 		constexpr bool valid() const {
@@ -117,10 +139,10 @@ public:
 		}
 	};
 
-	constexpr Node(const id_t& id_, const Node* parent=nullptr):
+	constexpr Node(std::string_view name, const Node* parent=nullptr):
 	_parent(parent),
 	_c(0),
-	_id(id_) {
+	_name(name) {
 	}
 
 	// TODO: I'd prefer making this private, and doing an explicity copy() method.
@@ -129,7 +151,7 @@ public:
 	_c(n._c),
 	_start(n._start),
 	_stop(n._stop),
-	_id(n._id) {
+	_name(n._name) {
 		for(auto* c : n._children) {
 			_children.emplace_back(new Node(*c));
 
@@ -159,10 +181,10 @@ public:
 		return *this;
 	}
 
-	constexpr auto& child(const id_t& id) {
-		if(_c >= _children.size()) _children.push_back(new node_t(id, this));
+	constexpr auto& child(std::string_view name) {
+		if(_c >= _children.size()) _children.push_back(new node_t(name, this));
 
-		else _children[_c]->_id = id;
+		else _children[_c]->_name = name;
 
 		_c++;
 
@@ -170,7 +192,7 @@ public:
 	}
 
 	constexpr auto& sleep(Clock::duration::rep r) {
-		sleep_for(unit_t(r));
+		sleep_for(duration_t(r));
 
 		return *this;
 	}
@@ -202,7 +224,7 @@ public:
 	// TODO: Do NOT return count(), but instead the duration object (since libfmt understands
 	// this and can handle it better.
 	constexpr auto duration() const {
-		auto d = std::chrono::duration_cast<unit_t>(_stop - _start).count();
+		auto d = std::chrono::duration_cast<duration_t>(_stop - _start).count();
 
 		return d < 0 ? 0 : d;
 	}
@@ -228,19 +250,21 @@ public:
 		return _children;
 	}
 
-	constexpr const auto& id() const {
-		return _id;
+	constexpr auto name() const {
+		return _name;
 	}
 
-	// Returns all Id values from this Node to the topmost parent (the first Node it
-	// finds with NO parent), in the correct order.
-	constexpr auto ids() const {
-		Ids ids_;
+#if 0
+	// Returns the full "path" from this Node to the topmost parent (the first Node it
+	// finds with NO parent), in the correct order. It accepts a separator string, defaulting to the
+	// traditional "/" character.
+	constexpr auto path(std::string_view sep="/") const {
+		Path ids_;
 
 		const node_t* n = this;
 
 		while(n) {
-			ids_.push_front(&(n->_id));
+			ids_.push_front(&(n->_name));
 
 			n = n->_parent;
 		}
@@ -249,6 +273,7 @@ public:
 		// return std::move(ids_);
 		return ids_;
 	}
+#endif
 
 	constexpr auto start_point() const {
 		return _start.count();
@@ -259,7 +284,7 @@ public:
 	}
 
 	friend std::ostream& operator<<(std::ostream& os, const node_t& n) {
-		os << n._id << " " << n.duration() << duration_str<unit_t>();
+		os << n._name << " " << n.duration() << duration_str<duration_t>();
 
 		if(n._parent) os
 			<< " ("
@@ -270,9 +295,8 @@ public:
 		;
 
 		os
-			// << " [id=" << n._id
 			<< " [@=" << &n
-			<< ", parent=" << (n._parent ? n._parent->id() : "")
+			<< ", parent=" << (n._parent ? n._parent->name() : "")
 			<< "@" << n._parent
 			<< ", children=" << n._children.size()
 			<< "] {" << n._start.count() << " -> +"
@@ -293,31 +317,31 @@ private:
 	time_point _start;
 	time_point _stop;
 
-	id_t _id;
+	std::string_view _name;
 };
 
 using NanoNode = Node<std::chrono::nanoseconds>;
 using MicroNode = Node<std::chrono::microseconds>;
 using MilliNode = Node<std::chrono::milliseconds>;
 
-// TODO: Should I make this INHERIT from Node?
-// TODO: Why am I able to use "Node" as a valid argument name?
-template<typename Node>
+// template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
+template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
 class Timer {
 public:
-	using node_t = Node;
+	using node_t = Node<Duration>;
 
-	Timer(const typename node_t::id_t& id):
-	_node(id) {
+	Timer(std::string_view name):
+	_node(name) {
 	}
 
-	void start(const typename node_t::id_t& id) {
+	void start(std::string_view name) {
 		// If this is the FIRST start, go ahead and start our "toplevel" timer, which will hold this
 		// first (requested) timer AND all subsequent children.
-		// TODO: Pass ctor Id into THIS START ONLY!
+		//
+		// TODO: The constructor currently sets this... but SHOULD it?
 		if(!_n) _n = &_node.start();
 
-		_n = &_n->child(id).start();
+		_n = &_n->child(name).start();
 	}
 
 	void stop() {
@@ -343,10 +367,11 @@ private:
 	node_t* _n = nullptr;
 };
 
-using NanoTimer = Timer<NanoNode>;
-using MicroTimer = Timer<MicroNode>;
-using MilliTimer = Timer<MilliNode>;
+using NanoTimer = Timer<std::chrono::nanoseconds>;
+using MicroTimer = Timer<std::chrono::microseconds>;
+using MilliTimer = Timer<std::chrono::milliseconds>;
 
+// TODO: Like Node and Timer, this should have its own is_node<>() check.
 template<typename Node>
 class Profile {
 public:
@@ -390,8 +415,8 @@ namespace report {
 		};
 	}
 
-	template<typename Node>
-	void ostream(const Node& n, std::ostream& os, size_t depth=0) {
+	template<typename Duration>
+	void ostream(const Node<Duration>& n, std::ostream& os, size_t depth=0) {
 		for(size_t i = 0; i < depth; i++) os << "  ";
 
 		if(depth) os << "\\_";
@@ -401,13 +426,13 @@ namespace report {
 		for(const auto& c : n.children()) ostream(*c, os, depth + 1);
 	}
 
-	template<typename Node>
-	void ostream_json(const Node& n, std::ostream& os, size_t depth=0, bool comma=false) {
+	template<typename Duration>
+	void ostream_json(const Node<Duration>& n, std::ostream& os, size_t depth=0, bool comma=false) {
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
 		ind() << "{" << std::endl;
-		ind(1) << "\"id\": \"" << n.id() << "\"," << std::endl;
-		ind(1) << "\"unit\": \"" << duration_str<typename Node::unit_t>() << "\"," << std::endl;
+		ind(1) << "\"name\": \"" << n.name() << "\"," << std::endl;
+		ind(1) << "\"unit\": \"" << duration_str<Duration>() << "\"," << std::endl;
 		ind(1) << "\"start\": " << n.start_point() << "," << std::endl;
 		ind(1) << "\"stop\": " << n.stop_point() << "," << std::endl;
 		ind(1) << "\"children\": [" << std::endl;
@@ -423,16 +448,22 @@ namespace report {
 		ind() << "}" << (comma ? "," : "") << std::endl;
 	}
 
-	/* template<typename Profile>
-	void ostream_json(const Profile& p, std::ostream& os) {
+	template<typename Node>
+	void ostream_json(const Profile<Node>& p, std::ostream& os) {
 		os << "[" << std::endl;
 
-		// for(const auto& n : p.data()) ostream_json(n, os, 1);
+		size_t i = 0;
+
+		for(const auto& n : p.data()) {
+			ostream_json(n, os, 1, i >= p.size() - 1 ? false : true);
+
+			i++;
+		}
 
 		os << "]" << std::endl;
-	} */
+	}
 
-	template<typename Node>
+	/* template<typename Node>
 	void tabulate(const Node& n, tabulate::Table& table, size_t depth=0) {
 		std::ostringstream os;
 
@@ -449,7 +480,7 @@ namespace report {
 		});
 
 		for(const auto* c : n.children()) tabulate(*c, table, depth + 1);
-	}
+	} */
 
 	/* template<typename N>
 	void format(...) {

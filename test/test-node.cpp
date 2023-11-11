@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
 
 		chronode::report::ostream(n, std::cout);
 
-		auto nc = n.copy();
+		auto nc = n;
 
 		chronode::report::ostream(nc, std::cout);
 	}

@@ -1,5 +1,3 @@
-const DPR = window.devicePixelRatio;
-
 function deg2rad(d) { return d * (Math.PI / 180); }
 function rad2deg(r) { return r * (180 / Math.PI); }
 
@@ -152,6 +150,8 @@ function canvasScalePPI(width, height) {
 	// Adjust canvas coordinates to use CSS pixel coordinates.
 	const c = canvas.getContext("2d");
 
+	console.log(`canvasScalePPI(${width}, ${height})`);
+
 	c.scale(DPR, DPR);
 }
 
@@ -169,7 +169,7 @@ function canvasResize() {
 
 	console.log(`w = ${w}, h = ${h}`);
 
-	canvasDraw();
+	// canvasDraw();
 
 	console.log("-- resize");
 }
@@ -254,43 +254,22 @@ function canvasDraw() {
 
 // https://www.w3schools.com/jsref/dom_obj_event.asp
 // TODO: Why can't we call "canvas.addEventListener"?
-window.addEventListener("resize", canvasResize);
+// window.addEventListener("resize", canvasResize);
 
 canvasResize();
 
-var FILE = null;
-var DATA = null;
+function chronode(canvasName, node) {
+	var canvas = document.getElementById(canvasName);
+	var c = canvas.getContext("2d");
 
-// TODO: Why doesn't this work?
-// document.getElementById("inputfile").addEventListener("change", () => {
-document.getElementById("inputfile").addEventListener("change", function() {
-	var fr = new FileReader();
-
-	fr.onload = () => {
-		// TODO: Check for exceptions, etc.
-		DATA = JSON.parse(fr.result);
-
-		chronode(DATA);
-	}
-
-	FILE = this.files[0].name;
-
-	fr.readAsText(this.files[0]);
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-	// document.getElementById("version").innerHTML = `[ ${SEO.version.join(".")} <span style="color:red">TESTING</span> ]`;
-});
-
-function chronode(node) {
 	// We treat the first Node as the "master", using its members as guides for the extents of
 	// the visualization.
-	const id = node.id;
+	const name = node.name;
 	const start = node.start;
 	const stop = node.stop;
 	const PPU = canvas.width / (stop - start);
 
-	console.log(`Recursing: ${node.id}`);
+	console.log(`Recursing: ${node.name}`);
 	console.log(`Range: start=${start}, stop=${stop}`);
 	console.log(`Span: ${stop - start}ms`);
 	console.log(`PPU (Pixels Per Unit): ${canvas.width / (stop - start)}px`);
@@ -315,7 +294,7 @@ function chronode(node) {
 			c.strokeStyle = "#fff";
 			c.lineWidth = 1;
 
-			console.log(`${node.id} at ${depth} (${node.stop - node.start}ms) x0=${x0}, x1=${x1}`);
+			console.log(`${node.name} at ${depth} (${node.stop - node.start}ms) x0=${x0}, x1=${x1}`);
 
 			for(var x of [x0, x1]) {
 				// console.log(`Doing: x=${x}, y=${y}`);
@@ -334,19 +313,19 @@ function chronode(node) {
 
 			// https://stackoverflow.com/questions/15661339/how-do-i-fix-blurry-text-in-my-html5-canvas
 			c.textAlign = "center";
-			c.font = "14px Segoe";
+			c.font = "11px Segoe";
 
 			c.save();
 			c.translate(0.5, 0.5);
 
 			c.fillStyle = "#666";
 
-			c.fillText(node.id, x0 + Math.round(((x1 - x0) / 2)), y - 5);
+			c.fillText(node.name, x0 + Math.round(((x1 - x0) / 2)), y - 5);
 			c.fillText(`${node.stop - node.start}ms`, x0 + Math.round(((x1 - x0) / 2)), y + 14);
 
 			c.restore();
 
-			c.fillText(node.id, x0 + Math.round(((x1 - x0) / 2)), y - 5);
+			c.fillText(node.name, x0 + Math.round(((x1 - x0) / 2)), y - 5);
 			c.fillText(`${node.stop - node.start}ms`, x0 + Math.round(((x1 - x0) / 2)), y + 14);
 
 			c.restore();
@@ -356,6 +335,11 @@ function chronode(node) {
 			_chronode(node.children[i], depth + 1);
 		}
 	}
+
+	c.save();
+	c.fillStyle = "#999";
+	c.fillRect(0, 0, canvas.width, canvas.height);
+	c.restore();
 
 	_chronode(node);
 }
