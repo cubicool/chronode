@@ -80,7 +80,7 @@ namespace util {
 		for(size_t i = 0; i < depth; i++) os << str;
 
 		return os;
-	};
+	}
 }
 
 template<typename Duration>
@@ -412,7 +412,7 @@ namespace report {
 			for(size_t i = 0; i < depth; i++) os << str;
 
 			return os;
-		};
+		}
 	}
 
 	template<typename Duration>
