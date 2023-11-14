@@ -1,8 +1,5 @@
 #pragma once
 
-// TODO: Make these optional (and a toggle for cmake).
-#include "tabulate.hpp"
-
 #include <chrono>
 #include <thread>
 #include <utility>
@@ -221,8 +218,7 @@ public:
 		return *this;
 	}
 
-	// TODO: Do NOT return count(), but instead the duration object (since libfmt understands
-	// this and can handle it better.
+	// TODO: Do NOT return count(), but instead the duration object.
 	constexpr auto duration() const {
 		auto d = std::chrono::duration_cast<duration_t>(_stop - _start).count();
 
@@ -283,8 +279,37 @@ public:
 		return _stop.count();
 	}
 
+	// TODO: What should this REALLY be called?
+	void json(std::ostream& os, size_t depth=0, bool comma=false) const {
+		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
+
+		ind() << "{" << std::endl;
+		ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
+		ind(1) << "\"unit\": \"" << duration_str<Duration>() << "\"," << std::endl;
+		ind(1) << "\"start\": " << _start.count() << "," << std::endl;
+		ind(1) << "\"stop\": " << _stop.count() << "," << std::endl;
+		ind(1) << "\"children\": [" << std::endl;
+
+		for(size_t i = 0; i < _children.size(); i++) (*_children[i]).json(
+			os,
+			depth + 2,
+			i < _children.size() - 1
+		);
+
+		ind(1) << "]" << std::endl;
+		ind() << "}" << (comma ? "," : "") << std::endl;
+	}
+
+	constexpr auto json(size_t depth=0, bool comma=false) const {
+		std::stringstream ss;
+
+		json(ss, depth, comma);
+
+		return ss.str();
+	}
+
 	friend std::ostream& operator<<(std::ostream& os, const node_t& n) {
-		os << n._name << " " << n.duration() << duration_str<duration_t>();
+		/* os << n._name << " " << n.duration() << duration_str<duration_t>();
 
 		if(n._parent) os
 			<< " ("
@@ -301,7 +326,9 @@ public:
 			<< ", children=" << n._children.size()
 			<< "] {" << n._start.count() << " -> +"
 			<< n._stop.count() - n._start.count() << "}"
-		;
+		; */
+
+		n.json(os);
 
 		return os;
 	}
@@ -406,15 +433,8 @@ using NanoProfile = Profile<NanoNode>;
 using MicroProfile = Profile<MicroNode>;
 using MilliProfile = Profile<MilliNode>;
 
+// TODO: REMOVE ME!
 namespace report {
-	namespace util {
-		auto& indent(std::ostream& os, size_t depth, const std::string& str="\t") {
-			for(size_t i = 0; i < depth; i++) os << str;
-
-			return os;
-		}
-	}
-
 	template<typename Duration>
 	void ostream(const Node<Duration>& n, std::ostream& os, size_t depth=0) {
 		for(size_t i = 0; i < depth; i++) os << "  ";
@@ -424,28 +444,6 @@ namespace report {
 		os << n << std::endl;
 
 		for(const auto& c : n.children()) ostream(*c, os, depth + 1);
-	}
-
-	template<typename Duration>
-	void ostream_json(const Node<Duration>& n, std::ostream& os, size_t depth=0, bool comma=false) {
-		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
-
-		ind() << "{" << std::endl;
-		ind(1) << "\"name\": \"" << n.name() << "\"," << std::endl;
-		ind(1) << "\"unit\": \"" << duration_str<Duration>() << "\"," << std::endl;
-		ind(1) << "\"start\": " << n.start_point() << "," << std::endl;
-		ind(1) << "\"stop\": " << n.stop_point() << "," << std::endl;
-		ind(1) << "\"children\": [" << std::endl;
-
-		for(size_t i = 0; i < n.children().size(); i++) ostream_json(
-			*n.children()[i],
-			os,
-			depth + 2,
-			i < n.children().size() - 1
-		);
-
-		ind(1) << "]" << std::endl;
-		ind() << "}" << (comma ? "," : "") << std::endl;
 	}
 
 	template<typename Node>
@@ -462,83 +460,6 @@ namespace report {
 
 		os << "]" << std::endl;
 	}
-
-	/* template<typename Node>
-	void tabulate(const Node& n, tabulate::Table& table, size_t depth=0) {
-		std::ostringstream os;
-
-		for(const auto* i : n.ids()) os << "/" << *i;
-
-		table.add_row({
-			n.id(),
-			n.parent() ? n.parent()->id() : "",
-			os.str(),
-			std::to_string(n.children().size()),
-			std::to_string(n.duration()),
-			std::to_string(n.start_point()),
-			"+" + std::to_string(n.stop_point() - n.start_point())
-		});
-
-		for(const auto* c : n.children()) tabulate(*c, table, depth + 1);
-	} */
-
-	/* template<typename N>
-	void format(...) {
-		// TODO: This is the code for using libfmt.
-		if(_parent) d = fmt::format("{}ms ({:.2f}%)",
-			duration(),
-			(static_cast<double>(duration()) / static_cast<double>(_parent->duration())) * 100.0
-		);
-
-		fmt::print("{}{} [name={}, parent={}, children={}] {{{} -> {}}}\n",
-			indent,
-			d,
-			_name,
-			_parent ? _parent->_name : "",
-			_children.size(),
-			_start.count(),
-			_stop.count()
-		);
-	} */
-
-#if 0
-	using Span = std::pair<Clock::duration::rep, Clock::duration::rep>;
-	using Spans = std::vector<Span>;
-	using RowsSpans = std::vector<Spans>;
-
-	// TODO: Should this be a method on Node instead?
-	template<typename Node>
-	// const auto& rows_spans(const Node& n, RowsSpans* dr=nullptr, size_t depth=0) {
-	const RowsSpans& rows_spans(const Node& n, RowsSpans* dr=nullptr, size_t depth=0) {
-		thread_local static RowsSpans _dr{};
-
-		// The reason we pass a pointer to something that is statically available is because
-		// it's ALSO USED as an indicator the RowsSpans object needs to be reset/cleared.
-		if(!dr) {
-			_dr.clear();
-
-			dr = &_dr;
-		}
-
-		// if(dr->size() <= depth) dr->emplace_back(Spans{});
-		// XXX: This is possible (instead of the above) because emplace_back will forward the
-		// parameters to the underlying/templated type for us! Same below...
-		if(dr->size() <= depth) dr->emplace_back();
-
-		// (*dr)[depth].emplace_back(Span{n.start_point().count(), n.stop_point().count()});
-		(*dr)[depth].emplace_back(n.start_point(), n.stop_point());
-
-		std::cout
-			<< "depth=" << depth
-			<< " adding " << n.start_point()
-			<< ", " << n.stop_point() << std::endl
-		;
-
-		for(const auto* c : n.children()) rows_spans(*c, dr, depth + 1);
-
-		return _dr;
-	}
-#endif
 }
 
 }
