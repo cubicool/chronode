@@ -78,6 +78,28 @@ namespace util {
 
 		return os;
 	}
+
+	class JSONStream {
+	public:
+		// WHOA! Why the "comma" argument, you ask? Well, this is useful when iterating over a
+		// group of json()'able things, where you often WANT a comma (except for the LAST element).
+		// This could be done other ways, of course... but using it as a parameter simplifies the
+		// caller's code (to a slight degree).
+		virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const = 0;
+
+		std::string json(size_t depth=0, bool comma=false) const {
+			std::stringstream ss;
+
+			json(ss, depth, comma);
+
+			return ss.str();
+		}
+
+		friend std::ostream& operator<<(std::ostream& os, const JSONStream& js) {
+			return js.json(os);
+		}
+	};
+
 }
 
 template<typename Duration>
@@ -108,7 +130,7 @@ constexpr bool is_duration_v = std::is_same_v<
 
 // template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
 template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
-class Node {
+class Node: public util::JSONStream {
 public:
 	using duration_t = Duration;
 	using node_t = Node<duration_t>;
@@ -136,6 +158,12 @@ public:
 		}
 	};
 
+	// TODO: It'll be necessary to have a default ctor if I want to use preallocation in Profile.
+	/* constexpr Node():
+	_parent(nullptr),
+	_c(0) {
+	} */
+
 	constexpr Node(std::string_view name, const Node* parent=nullptr):
 	_parent(parent),
 	_c(0),
@@ -158,7 +186,7 @@ public:
 
 	// TODO: This breaks C++14/17 if dtor is constexpr.
 	// constexpr ~Node() {
-	~Node() {
+	virtual ~Node() {
 		for(auto* c : _children) delete c;
 	}
 
@@ -279,13 +307,11 @@ public:
 		return _stop.count();
 	}
 
-	// TODO: What should this REALLY be called?
-	void json(std::ostream& os, size_t depth=0, bool comma=false) const {
+	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
 		ind() << "{" << std::endl;
 		ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
-		ind(1) << "\"unit\": \"" << duration_str<Duration>() << "\"," << std::endl;
 		ind(1) << "\"start\": " << _start.count() << "," << std::endl;
 		ind(1) << "\"stop\": " << _stop.count() << "," << std::endl;
 		ind(1) << "\"children\": [" << std::endl;
@@ -298,8 +324,11 @@ public:
 
 		ind(1) << "]" << std::endl;
 		ind() << "}" << (comma ? "," : "") << std::endl;
+
+		return os;
 	}
 
+#if 0
 	constexpr auto json(size_t depth=0, bool comma=false) const {
 		std::stringstream ss;
 
@@ -328,10 +357,9 @@ public:
 			<< n._stop.count() - n._start.count() << "}"
 		; */
 
-		n.json(os);
-
-		return os;
+		return n.json(os);
 	}
+#endif
 
 private:
 	Node& operator=(const Node&) = delete;
@@ -351,17 +379,20 @@ using NanoNode = Node<std::chrono::nanoseconds>;
 using MicroNode = Node<std::chrono::microseconds>;
 using MilliNode = Node<std::chrono::milliseconds>;
 
+template<typename Node>
+class Profile;
+
 // template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
 template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
-class Timer {
+class Timer: public util::JSONStream {
 public:
 	using node_t = Node<Duration>;
 
-	Timer(std::string_view name):
+	constexpr Timer(std::string_view name):
 	_node(name) {
 	}
 
-	void start(std::string_view name) {
+	constexpr void start(std::string_view name) {
 		// If this is the FIRST start, go ahead and start our "toplevel" timer, which will hold this
 		// first (requested) timer AND all subsequent children.
 		//
@@ -371,7 +402,7 @@ public:
 		_n = &_n->child(name).start();
 	}
 
-	void stop() {
+	constexpr void stop() {
 		// This is the "stop()" action that corresponds to the implicit "start."
 		// TODO: This needs to be improved.
 		if(!_n) _node.stop();
@@ -381,15 +412,27 @@ public:
 		}
 	}
 
-	auto& node() {
+	/* auto& node() {
 		return _node;
 	}
 
 	const auto& node() const {
 		return _node;
+	} */
+
+	constexpr void reset() {
+		_node.reset();
+	}
+
+	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
+		os << "TODO!" << std::endl;
+
+		return os;
 	}
 
 private:
+	friend class Profile<node_t>;
+
 	node_t _node;
 	node_t* _n = nullptr;
 };
@@ -400,11 +443,12 @@ using MilliTimer = Timer<std::chrono::milliseconds>;
 
 // TODO: Like Node and Timer, this should have its own is_node<>() check.
 template<typename Node>
-class Profile {
+class Profile: public util::JSONStream {
 public:
 	using node_t = Node;
 	using data_t = std::deque<node_t>;
 
+	// TODO: It will likely be more performant to use the preallocation constructor for deque.
 	Profile(size_t size):
 	_size(size) {
 	}
@@ -415,12 +459,36 @@ public:
 		_data.push_front(node);
 	}
 
-	constexpr const auto& data() const {
+	constexpr void add(const Timer<typename node_t::duration_t>& timer) {
+		add(timer._node);
+	}
+
+	// TODO: We probably don't want these.
+	/* constexpr const auto& data() const {
 		return _data;
 	}
 
 	constexpr size_t size() const {
 		return _data.size();
+	} */
+
+	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
+		os << "{" << std::endl;
+
+		util::indent(os, 1) << "\"unit\": \"" << duration_str<typename Node::duration_t>() << "\"," << std::endl;
+		util::indent(os, 1) << "\"data\": [" << std::endl;
+
+		for(size_t i = 0; i < _data.size(); i++) _data[i].json(
+			os,
+			2,
+			i >= _data.size() - 1 ? false : true
+		);
+
+		util::indent(os, 1) << "]" << std::endl;
+
+		os << "}" << std::endl;
+
+		return os;
 	}
 
 protected:
@@ -432,34 +500,5 @@ protected:
 using NanoProfile = Profile<NanoNode>;
 using MicroProfile = Profile<MicroNode>;
 using MilliProfile = Profile<MilliNode>;
-
-// TODO: REMOVE ME!
-namespace report {
-	template<typename Duration>
-	void ostream(const Node<Duration>& n, std::ostream& os, size_t depth=0) {
-		for(size_t i = 0; i < depth; i++) os << "  ";
-
-		if(depth) os << "\\_";
-
-		os << n << std::endl;
-
-		for(const auto& c : n.children()) ostream(*c, os, depth + 1);
-	}
-
-	template<typename Node>
-	void ostream_json(const Profile<Node>& p, std::ostream& os) {
-		os << "[" << std::endl;
-
-		size_t i = 0;
-
-		for(const auto& n : p.data()) {
-			ostream_json(n, os, 1, i >= p.size() - 1 ? false : true);
-
-			i++;
-		}
-
-		os << "]" << std::endl;
-	}
-}
 
 }

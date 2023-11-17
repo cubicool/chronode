@@ -46,12 +46,12 @@ int main(int argc, char** argv) {
 			t.stop();
 
 			// chronode::report::ostream(t.node(), std::cout);
-			std::cout << t.node() << std::endl;
+			// std::cout << t.node() << std::endl;
 
-			p.add(t.node());
+			p.add(t);
 
 			// This stupid hack skips the last reset (so the Tablulate works below).
-			if(i < n - 1) t.node().reset();
+			if(i < n - 1) t.reset();
 		}
 
 #if 0
@@ -80,6 +80,7 @@ int main(int argc, char** argv) {
 		// chronode::report::ostream_json(t.node(), std::cout);
 
 		// for(const auto& i : p.data()) std::cout << i << std::endl;
+		std::cout << p << std::endl;
 
 		// chronode::report::ostream_json(p, std::cout);
 	}
