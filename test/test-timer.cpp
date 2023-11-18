@@ -43,46 +43,10 @@ int main(int argc, char** argv) {
 
 			chronode::sleep_for(s);
 
-			t.stop();
-
-			// chronode::report::ostream(t.node(), std::cout);
-			// std::cout << t.node() << std::endl;
-
-			p.add(t);
-
-			// This stupid hack skips the last reset (so the Tablulate works below).
-			if(i < n - 1) t.reset();
+			p.add(t.reset());
 		}
 
-#if 0
-		tabulate::Table table;
-
-		// The code below will fetch the string_view representation of the "unit_t" used.
-		// For example: ms (milliseconds), us (microseconds), ns (nanoseconds), etc.
-		constexpr const auto ds = chronode::duration_str<decltype(t)::node_t::unit_t>();
-
-		table.add_row({"Id", "Parent", "Path", "#", ds, "Start", "Stop"});
-
-		chronode::report::tabulate(t.node(), table);
-
-		// Formatting needs to be done AFTER rows are added? Feels ... unnatural.
-		table.row(0).format().font_style({tabulate::FontStyle::bold});
-
-		table.column(6).format()
-			// .font_style({tabulate::FontStyle::bold})
-			.font_color(tabulate::Color::green)
-			.font_align(tabulate::FontAlign::right)
-		;
-
-		std::cout << table << std::endl;
-#endif
-
-		// chronode::report::ostream_json(t.node(), std::cout);
-
-		// for(const auto& i : p.data()) std::cout << i << std::endl;
 		std::cout << p << std::endl;
-
-		// chronode::report::ostream_json(p, std::cout);
 	}
 
 	return 0;

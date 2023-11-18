@@ -35,3 +35,4 @@ absolute time and the time relative to a parent.
 - Timer should probably remove the `node()` method, adding Node/Timer
   overloading when necessary. Furthermore, AT LEAST a `reset()` will need to be
   added (since we can't call `node().reset()` anymore).
+- Use optimized ring_buffer in Profile.

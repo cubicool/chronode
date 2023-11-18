@@ -197,6 +197,8 @@ public:
 		return Node(*this);
 	} */
 
+	// This IMMEDIATELY resets all the internal Node data; it's worth mentioning, because the
+	// Timer's version of reset() does NOT.
 	constexpr Node& reset() {
 		_start = _stop = time_point{};
 		_c = 0;
@@ -393,6 +395,14 @@ public:
 	}
 
 	constexpr void start(std::string_view name) {
+		// The ACTUAL CALL to _node.reset() is deferred until this point, so that after calling
+		// the Timer's reset(), its "state" remains (and be queried or copied into a Profile).
+		if(_reset) {
+			_node.reset();
+
+			_reset = false;
+		}
+
 		// If this is the FIRST start, go ahead and start our "toplevel" timer, which will hold this
 		// first (requested) timer AND all subsequent children.
 		//
@@ -404,7 +414,7 @@ public:
 
 	constexpr void stop() {
 		// This is the "stop()" action that corresponds to the implicit "start."
-		// TODO: This needs to be improved.
+		// TODO: Should this be done inside reset()?
 		if(!_n) _node.stop();
 
 		else if(!_n->duration()) {
@@ -420,12 +430,27 @@ public:
 		return _node;
 	} */
 
-	constexpr void reset() {
-		_node.reset();
+	// This calls the necessary final "stop" (which we need beceause of the implicit "start" before
+	// creating the first child), and sets a boolean flag indicating that the next time this
+	// object's start() method is called all of the internal Node data should be reset. This is
+	// necessary so that AFTER calling reset() on this Timer, the caller can continue to safely
+	// query the Node graph until they "start" again.
+	//
+	// Furthermore, we return a const reference to the internal node_t in its "final" state so that
+	// external code can query any relevant information (or, in the case of Profile, make a copy for
+	// analysis later).
+	constexpr const auto& reset() {
+		stop();
+
+		_reset = true;
+
+		return _node;
 	}
 
+	// TODO: This isn't enough; at a minimum, it needs to include the same extra fields that Profile
+	// does (unit and duration).
 	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
-		os << "TODO!" << std::endl;
+		_node.json(os, depth, comma);
 
 		return os;
 	}
@@ -435,6 +460,7 @@ private:
 
 	node_t _node;
 	node_t* _n = nullptr;
+	bool _reset = false;
 };
 
 using NanoTimer = Timer<std::chrono::nanoseconds>;
@@ -446,6 +472,7 @@ template<typename Node>
 class Profile: public util::JSONStream {
 public:
 	using node_t = Node;
+	using duration_t = typename node_t::duration_t;
 	using data_t = std::deque<node_t>;
 
 	// TODO: It will likely be more performant to use the preallocation constructor for deque.
@@ -453,13 +480,17 @@ public:
 	_size(size) {
 	}
 
+	// Copies an existing Node object into the data history.
 	constexpr void add(const node_t& node) {
 		if(_data.size() >= _size) _data.pop_back();
 
 		_data.push_front(node);
 	}
 
-	constexpr void add(const Timer<typename node_t::duration_t>& timer) {
+	// Copies the "managed" Node held inside a Timer object into the data history.
+	//
+	// TODO: Should this implictly call reset() on the Timer instance?
+	constexpr void add(const Timer<duration_t>& timer) {
 		add(timer._node);
 	}
 
@@ -473,10 +504,23 @@ public:
 	} */
 
 	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
-		os << "{" << std::endl;
+		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
-		util::indent(os, 1) << "\"unit\": \"" << duration_str<typename Node::duration_t>() << "\"," << std::endl;
-		util::indent(os, 1) << "\"data\": [" << std::endl;
+		ind() << "{" << std::endl;
+		ind(1) << "\"unit\": \"" << duration_str<duration_t>() << "\"," << std::endl;
+
+		auto average = std::accumulate(
+			_data.begin(),
+			_data.end(),
+			typename duration_t::rep(0),
+			// [](typename duration_t::rep l, const node_t& r) {
+			// TODO: Both Clang 12 and GCC 10 let me get away with using "auto" here in C++17 mode;
+			// I'm not sure if that's a bug or a bonus. :)
+			[](auto l, const auto& r) { return l + r.duration(); }
+		) / static_cast<typename duration_t::rep>(_data.size());
+
+		ind(1) << "\"duration\": " << average << "," << std::endl;
+		ind(1) << "\"data\": [" << std::endl;
 
 		for(size_t i = 0; i < _data.size(); i++) _data[i].json(
 			os,
@@ -484,9 +528,8 @@ public:
 			i >= _data.size() - 1 ? false : true
 		);
 
-		util::indent(os, 1) << "]" << std::endl;
-
-		os << "}" << std::endl;
+		ind(1) << "]" << std::endl;
+		ind() << "}" << std::endl;
 
 		return os;
 	}
