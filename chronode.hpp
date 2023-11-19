@@ -135,7 +135,7 @@ public:
 	using duration_t = Duration;
 	using node_t = Node<duration_t>;
 
-	using Children = std::deque<node_t*>;
+	using Children = std::deque<node_t>;
 	// using Children = std::vector<node_t*>;
 	// using Path = std::deque<const std::string&>;
 
@@ -164,30 +164,41 @@ public:
 	_c(0) {
 	} */
 
-	constexpr Node(std::string_view name, const Node* parent=nullptr):
+	constexpr Node(std::string_view name, const node_t* parent=nullptr):
 	_parent(parent),
 	_c(0),
 	_name(name) {
 	}
 
-	// TODO: I'd prefer making this private, and doing an explicity copy() method.
-	constexpr Node(const Node& n):
+	/* // TODO: I'd prefer making this private, and doing an explicity copy() method.
+	constexpr Node(const node_t& n):
 	_parent(nullptr),
 	_c(n._c),
 	_start(n._start),
 	_stop(n._stop),
 	_name(n._name) {
 		for(auto* c : n._children) {
-			_children.emplace_back(new Node(*c));
+			_children.emplace_back(new node_t(*c));
 
 			_children.back()->_parent = this;
 		}
+	} */
+
+	constexpr Node(const node_t& n):
+	_parent(nullptr),
+	_c(n._c),
+	_start(n._start),
+	_stop(n._stop),
+	_name(n._name) {
+		for(const auto& c : n._children) {
+			_children.emplace_back(c);
+
+			_children.back()._parent = this;
+		}
 	}
 
-	// TODO: This breaks C++14/17 if dtor is constexpr.
-	// constexpr ~Node() {
 	virtual ~Node() {
-		for(auto* c : _children) delete c;
+		// for(auto* c : _children) delete c;
 	}
 
 	/* // TODO: See copy-constructor above.
@@ -203,19 +214,21 @@ public:
 		_start = _stop = time_point{};
 		_c = 0;
 
-		for(auto* c : _children) c->reset();
+		// for(auto* c : _children) c->reset();
+		for(auto& c : _children) c.reset();
 
 		return *this;
 	}
 
 	constexpr auto& child(std::string_view name) {
-		if(_c >= _children.size()) _children.push_back(new node_t(name, this));
+		// if(_c >= _children.size()) _children.push_back(new node_t(name, this));
+		if(_c >= _children.size()) _children.emplace_back(name, this);
 
-		else _children[_c]->_name = name;
+		else _children[_c]._name = name;
 
 		_c++;
 
-		return *_children[_c - 1];
+		return _children[_c - 1];
 	}
 
 	constexpr auto& sleep(Clock::duration::rep r) {
@@ -313,12 +326,14 @@ public:
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
 		ind() << "{" << std::endl;
-		ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
+		// ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
+		ind(1) << "\"name\": \"" << _name << " (" << this << ")\"," << std::endl;
 		ind(1) << "\"start\": " << _start.count() << "," << std::endl;
 		ind(1) << "\"stop\": " << _stop.count() << "," << std::endl;
+		ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
 		ind(1) << "\"children\": [" << std::endl;
 
-		for(size_t i = 0; i < _children.size(); i++) (*_children[i]).json(
+		for(size_t i = 0; i < _children.size(); i++) _children[i].json(
 			os,
 			depth + 2,
 			i < _children.size() - 1

@@ -44,6 +44,9 @@ int main(int argc, char** argv) {
 			chronode::sleep_for(s);
 
 			p.add(t.reset());
+			// t.reset();
+
+			// std::cout << t << std::endl;
 		}
 
 		std::cout << p << std::endl;
