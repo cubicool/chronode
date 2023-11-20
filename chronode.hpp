@@ -9,7 +9,7 @@
 #include <numeric>
 #include <iomanip>
 
-#include <iostream>
+// #include <iostream>
 
 #define CHRONODE if constexpr(chronode::ENABLED)
 #define CHRONODE_MILLITIMER(cn) extern chronode::MilliTimer cn;
@@ -136,7 +136,7 @@ public:
 	using node_t = Node<duration_t>;
 
 	using Children = std::deque<node_t>;
-	// using Children = std::vector<node_t*>;
+	// using Children = std::vector<node_t>;
 	// using Path = std::deque<const std::string&>;
 
 	// https://en.cppreference.com/w/cpp/chrono/time_point
@@ -193,7 +193,7 @@ public:
 
 	// This IMMEDIATELY resets all the internal Node data; it's worth mentioning, because the
 	// Timer's version of reset() does NOT.
-	constexpr Node& reset() {
+	constexpr node_t& reset() {
 		_start = _stop = time_point{};
 		_c = 0;
 
@@ -306,11 +306,12 @@ public:
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
 		ind() << "{" << std::endl;
-		ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
-		// ind(1) << "\"name\": \"" << _name << " (" << this << ")\"," << std::endl;
+		// ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
+		ind(1) << "\"name\": \"" << _name << " (" << this << ")\"," << std::endl;
 		ind(1) << "\"start\": " << _start.count() << "," << std::endl;
 		ind(1) << "\"stop\": " << _stop.count() << "," << std::endl;
-		// ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
+		ind(1) << "\"duration\": " << duration() << "," << std::endl;
+		ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
 		ind(1) << "\"children\": [" << std::endl;
 
 		for(size_t i = 0; i < _children.size(); i++) _children[i].json(

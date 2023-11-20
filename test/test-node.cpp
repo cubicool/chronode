@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
 		n.child("a").start().sleep(10).stop();
 		n.stop();
 
-		chronode::report::ostream(n, std::cout);
+		std::cout << n << std::endl;
 
 		n.reset();
 
@@ -58,11 +58,11 @@ int main(int argc, char** argv) {
 		n.child("e").start().sleep(50ms).stop();
 		n.stop();
 
-		chronode::report::ostream(n, std::cout);
+		std::cout << n << std::endl;
 
 		auto nc = n;
 
-		chronode::report::ostream(nc, std::cout);
+		std::cout << nc << std::endl;
 	}
 
 	return 0;

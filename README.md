@@ -26,6 +26,7 @@ version, it will be as easy as using a named pipe.
 
 # TODO
 
+- What should happen when two or more children have the same name? Anything?
 - There is a bug in Node where it always thinks the number of ACTIVE children is
   however large the deque is; instead, it should be whatever the value of `_c`
   is (unless we ditch the `reset()` mechanism altogether).
