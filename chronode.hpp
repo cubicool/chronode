@@ -170,20 +170,7 @@ public:
 	_name(name) {
 	}
 
-	/* // TODO: I'd prefer making this private, and doing an explicity copy() method.
-	constexpr Node(const node_t& n):
-	_parent(nullptr),
-	_c(n._c),
-	_start(n._start),
-	_stop(n._stop),
-	_name(n._name) {
-		for(auto* c : n._children) {
-			_children.emplace_back(new node_t(*c));
-
-			_children.back()->_parent = this;
-		}
-	} */
-
+	// TODO: I'd prefer making this private, and doing an explicity copy() method.
 	constexpr Node(const node_t& n):
 	_parent(nullptr),
 	_c(n._c),
@@ -195,10 +182,6 @@ public:
 
 			_children.back()._parent = this;
 		}
-	}
-
-	virtual ~Node() {
-		// for(auto* c : _children) delete c;
 	}
 
 	/* // TODO: See copy-constructor above.
@@ -214,14 +197,12 @@ public:
 		_start = _stop = time_point{};
 		_c = 0;
 
-		// for(auto* c : _children) c->reset();
 		for(auto& c : _children) c.reset();
 
 		return *this;
 	}
 
 	constexpr auto& child(std::string_view name) {
-		// if(_c >= _children.size()) _children.push_back(new node_t(name, this));
 		if(_c >= _children.size()) _children.emplace_back(name, this);
 
 		else _children[_c]._name = name;
@@ -280,7 +261,6 @@ public:
 		return *this;
 	} */
 
-	// constexpr auto& parent() const {
 	constexpr const auto* parent() const {
 		return _parent;
 	}
@@ -326,11 +306,11 @@ public:
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
 		ind() << "{" << std::endl;
-		// ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
-		ind(1) << "\"name\": \"" << _name << " (" << this << ")\"," << std::endl;
+		ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
+		// ind(1) << "\"name\": \"" << _name << " (" << this << ")\"," << std::endl;
 		ind(1) << "\"start\": " << _start.count() << "," << std::endl;
 		ind(1) << "\"stop\": " << _stop.count() << "," << std::endl;
-		ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
+		// ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
 		ind(1) << "\"children\": [" << std::endl;
 
 		for(size_t i = 0; i < _children.size(); i++) _children[i].json(
@@ -345,43 +325,11 @@ public:
 		return os;
 	}
 
-#if 0
-	constexpr auto json(size_t depth=0, bool comma=false) const {
-		std::stringstream ss;
-
-		json(ss, depth, comma);
-
-		return ss.str();
-	}
-
-	friend std::ostream& operator<<(std::ostream& os, const node_t& n) {
-		/* os << n._name << " " << n.duration() << duration_str<duration_t>();
-
-		if(n._parent) os
-			<< " ("
-			<< std::setprecision(2)
-			<< std::setiosflags(std::ios::fixed)
-			<< (static_cast<double>(n.duration()) / static_cast<double>(n._parent->duration())) * 100.0
-			<< "%)"
-		;
-
-		os
-			<< " [@=" << &n
-			<< ", parent=" << (n._parent ? n._parent->name() : "")
-			<< "@" << n._parent
-			<< ", children=" << n._children.size()
-			<< "] {" << n._start.count() << " -> +"
-			<< n._stop.count() - n._start.count() << "}"
-		; */
-
-		return n.json(os);
-	}
-#endif
-
 private:
+	Node() = delete;
 	Node& operator=(const Node&) = delete;
 
-	const Node* _parent;
+	const node_t* _parent;
 
 	Children _children;
 	typename Children::size_type _c;
@@ -436,14 +384,6 @@ public:
 			_n = const_cast<node_t*>(_n->stop().parent());
 		}
 	}
-
-	/* auto& node() {
-		return _node;
-	}
-
-	const auto& node() const {
-		return _node;
-	} */
 
 	// This calls the necessary final "stop" (which we need beceause of the implicit "start" before
 	// creating the first child), and sets a boolean flag indicating that the next time this
@@ -508,15 +448,6 @@ public:
 	constexpr void add(const Timer<duration_t>& timer) {
 		add(timer._node);
 	}
-
-	// TODO: We probably don't want these.
-	/* constexpr const auto& data() const {
-		return _data;
-	}
-
-	constexpr size_t size() const {
-		return _data.size();
-	} */
 
 	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };

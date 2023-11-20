@@ -13,7 +13,10 @@ template <typename T, T N>
 }
 
 [[maybe_unused]] constexpr auto r_10 = []() { return rand_1n<size_t, 10>(); };
-[[maybe_unused]] constexpr auto r_500ms = []() { return std::chrono::milliseconds(rand_1n<size_t, 500>()); };
+[[maybe_unused]] constexpr auto r_50ms = []() { return std::chrono::milliseconds(rand_1n<size_t, 50>()); };
+[[maybe_unused]] constexpr auto r_100ms = []() { return std::chrono::milliseconds(rand_1n<size_t, 100>()); };
+[[maybe_unused]] constexpr auto s_50ms = []() { chronode::sleep_for(r_50ms()); };
+[[maybe_unused]] constexpr auto s_100ms = []() { chronode::sleep_for(r_100ms()); };
 
 #if 0
 template<typename Timer, typename... Nodes>
@@ -32,21 +35,21 @@ int main(int argc, char** argv) {
 
 		// TODO: Make a variadic template function to handle these calls!
 		for(decltype(n) i = 0; i < n; i++) {
-			t.start("A"); { chronode::sleep_for(10ms); t.start("a"); { chronode::sleep_for(10ms); }; t.stop(); }; t.stop();
-			t.start("B"); { chronode::sleep_for(20ms); }; t.stop();
-			t.start("C"); { chronode::sleep_for(30ms); }; t.stop();
-			t.start("D"); { chronode::sleep_for(40ms); }; t.stop();
-			t.start("E"); { chronode::sleep_for(30ms); t.start("e"); { chronode::sleep_for(30ms); }; t.stop(); }; t.stop();
-			t.start("F"); { chronode::sleep_for(40ms); t.start("f"); { chronode::sleep_for(40ms); }; t.stop(); }; t.stop();
-
-			auto s = r_500ms();
-
-			chronode::sleep_for(s);
+			t.start("A"); { s_50ms(); t.start("a"); { s_50ms(); }; t.stop(); }; t.stop(); s_100ms();
+			t.start("B"); { s_50ms(); }; t.stop(); s_100ms();
+			t.start("C"); { s_50ms(); }; t.stop(); s_100ms();
+			t.start("D"); { s_50ms(); }; t.stop(); s_100ms();
+			t.start("E"); { s_50ms(); t.start("e"); { s_50ms(); }; t.stop(); }; t.stop(); s_100ms();
+			t.start("F"); { s_50ms(); t.start("f"); { s_50ms(); }; t.stop(); }; t.stop(); s_100ms();
 
 			p.add(t.reset());
-			// t.reset();
 
-			// std::cout << t << std::endl;
+			// If you wanted, you could also do the following:
+			/* const auto& tmp = t.reset();
+
+			std::cout << tmp << std::endl;
+
+			p.add(tmp); */
 		}
 
 		std::cout << p << std::endl;
