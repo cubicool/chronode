@@ -3,8 +3,8 @@
 #include <chrono>
 #include <thread>
 #include <utility>
-#include <vector>
 #include <deque>
+#include <list>
 #include <sstream>
 #include <numeric>
 #include <iomanip>
@@ -135,8 +135,9 @@ public:
 	using duration_t = Duration;
 	using node_t = Node<duration_t>;
 
-	using Children = std::deque<node_t>;
+	// using Children = std::deque<node_t>;
 	// using Children = std::vector<node_t>;
+	using Children = std::list<node_t>;
 	// using Path = std::deque<const std::string&>;
 
 	// https://en.cppreference.com/w/cpp/chrono/time_point
@@ -158,10 +159,10 @@ public:
 		}
 	};
 
-	// TODO: It'll be necessary to have a default ctor if I want to use preallocation in Profile.
-	/* constexpr Node():
-	_parent(nullptr),
-	_c(0) {
+	/* // TODO: It'll be necessary to have a default ctor if I want to use preallocation in Profile.
+	constexpr Node():
+	_parent(nullptr) {
+		std::cout << "CTOR()" << std::endl;
 	} */
 
 	constexpr Node(const std::string& name, const node_t* parent=nullptr):
@@ -172,21 +173,23 @@ public:
 	virtual ~Node() {
 	}
 
-#if 0
-	// TODO: I'd prefer making this private, and doing an explicity copy() method.
+
+	/* // TODO: I'd prefer making this private, and doing an explicity copy() method.
 	constexpr Node(const node_t& n):
 	_parent(nullptr),
-	_c(n._c),
 	_start(n._start),
 	_stop(n._stop),
 	_name(n._name) {
+		std::cout << "COPYCTOR(): " << n._name << std::endl;
+
 		for(const auto& c : n._children) {
 			_children.emplace_back(c);
 
 			_children.back()._parent = this;
 		}
-	}
+	} */
 
+#if 0
 	node_t& operator=(const node_t& n) {
 		_parent = nullptr;
 		_start = n._start;
@@ -339,10 +342,16 @@ public:
 		ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
 		ind(1) << "\"children\": [" << std::endl;
 
-		for(size_t i = 0; i < _children.size(); i++) _children[i].json(
+		/* for(size_t i = 0; i < _children.size(); i++) _children[i].json(
 			os,
 			depth + 2,
 			i < _children.size() - 1
+		); */
+
+		for(const auto& c : _children) c.json(
+			os,
+			depth + 2,
+			(&c == &_children.back() ? false : true)
 		);
 
 		ind(1) << "]" << std::endl;
@@ -352,8 +361,12 @@ public:
 	}
 
 private:
+	// These just prove to me that I'm not invoking unnecesary construction.
 	Node() = delete;
-	Node& operator=(const Node&) = delete;
+	Node(const node_t&) = delete;
+	node_t& operator=(const node_t&) = delete;
+	Node(node_t&&) noexcept = delete;
+	node_t& operator=(node_t&&) noexcept = delete;
 
 	const node_t* _parent;
 
@@ -429,7 +442,7 @@ public:
 	}
 
 private:
-	friend class Profile<node_t>;
+	// friend class Profile<node_t>;
 
 	node_t* _node = nullptr;
 	node_t* _n = nullptr;
@@ -447,9 +460,9 @@ class Profile: public util::JSONStream {
 public:
 	using node_t = Node;
 	using duration_t = typename node_t::duration_t;
-	using data_t = std::deque<node_t*>;
+	// using data_t = std::deque<node_t*>;
+	using data_t = std::list<node_t*>;
 
-	// TODO: It will likely be more performant to use the preallocation constructor for deque.
 	Profile(size_t size):
 	_size(size) {
 	}
@@ -495,10 +508,16 @@ public:
 		ind(1) << "\"duration\": " << average << "," << std::endl;
 		ind(1) << "\"data\": [" << std::endl;
 
-		for(size_t i = 0; i < _data.size(); i++) _data[i]->json(
+		/* for(size_t i = 0; i < _data.size(); i++) _data[i]->json(
 			os,
 			2,
 			i >= _data.size() - 1 ? false : true
+		); */
+
+		for(const auto* d : _data) d->json(
+			os,
+			depth + 2,
+			(d == _data.back() ? false : true)
 		);
 
 		ind(1) << "]" << std::endl;

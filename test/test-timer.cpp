@@ -50,10 +50,10 @@ constexpr auto sf = [](auto i) { chronode::sleep_for(std::chrono::milliseconds(1
 
 int main(int argc, char** argv) {
 	CHRONODE {
-		auto p = chronode::MilliProfile(5);
+		auto p = chronode::MilliProfile(3);
 		auto t = chronode::MilliTimer("timer");
 
-		for(auto i = 0; i < 10; i++) {
+		for(auto i = 0; i < 5; i++) {
 			t.start("main"); sf(i); {
 				t.start("A"); sf(i); {
 					t.start("a0"); sf(i); t.stop();
