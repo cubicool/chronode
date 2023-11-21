@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 		auto p = chronode::MilliProfile(5);
 		auto t = chronode::MilliTimer("timer");
 
-		for(auto i = 0; i < 5; i++) {
+		for(auto i = 0; i < 10; i++) {
 			t.start("main"); sf(i); {
 				t.start("A"); sf(i); {
 					t.start("a0"); sf(i); t.stop();
@@ -71,11 +71,9 @@ int main(int argc, char** argv) {
 
 			p.add(t.reset());
 
-			/* const auto& tmp = t.reset();
-
-			std::cout << tmp << std::endl;
-
-			p.add(tmp); */
+			// auto* tmp = t.reset();
+			// std::cout << *tmp << std::endl;
+			// delete tmp;
 		}
 
 		std::cout << p << std::endl;

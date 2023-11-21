@@ -3,13 +3,13 @@
 #include <chrono>
 #include <thread>
 #include <utility>
-// #include <vector>
+#include <vector>
 #include <deque>
 #include <sstream>
 #include <numeric>
 #include <iomanip>
 
-// #include <iostream>
+#include <iostream>
 
 #define CHRONODE if constexpr(chronode::ENABLED)
 #define CHRONODE_MILLITIMER(cn) extern chronode::MilliTimer cn;
@@ -164,12 +164,15 @@ public:
 	_c(0) {
 	} */
 
-	constexpr Node(std::string_view name, const node_t* parent=nullptr):
+	constexpr Node(const std::string& name, const node_t* parent=nullptr):
 	_parent(parent),
-	_c(0),
 	_name(name) {
 	}
 
+	virtual ~Node() {
+	}
+
+#if 0
 	// TODO: I'd prefer making this private, and doing an explicity copy() method.
 	constexpr Node(const node_t& n):
 	_parent(nullptr),
@@ -184,6 +187,16 @@ public:
 		}
 	}
 
+	node_t& operator=(const node_t& n) {
+		_parent = nullptr;
+		_start = n._start;
+		_stop = n._stop;
+		_name = n._name;
+
+		return *this;
+	}
+#endif
+
 	/* // TODO: See copy-constructor above.
 	constexpr auto copy() const {
 		if(_parent) throw exception("Cannot copy a parented Node.");
@@ -191,6 +204,7 @@ public:
 		return Node(*this);
 	} */
 
+#if 0
 	// This IMMEDIATELY resets all the internal Node data; it's worth mentioning, because the
 	// Timer's version of reset() does NOT.
 	constexpr node_t& reset() {
@@ -201,15 +215,26 @@ public:
 
 		return *this;
 	}
+#endif
 
-	constexpr auto& child(std::string_view name) {
-		if(_c >= _children.size()) _children.emplace_back(name, this);
+	constexpr node_t& reset() {
+		_start = _stop = time_point{};
+
+		_children.clear();
+
+		return *this;
+	}
+
+	constexpr auto& child(const std::string& name) {
+		/* if(_c >= _children.size()) _children.emplace_back(name, this);
 
 		else _children[_c]._name = name;
 
-		_c++;
+		_c++; */
 
-		return _children[_c - 1];
+		_children.emplace_back(name, this);
+
+		return _children.back();
 	}
 
 	constexpr auto& sleep(Clock::duration::rep r) {
@@ -226,7 +251,7 @@ public:
 
 	// TODO: Check if started and throw exception!
 	constexpr auto& start() {
-		if(_start.valid()) throw exception("Timer already started.");
+		if(_start.valid()) throw exception("Node already started.");
 
 		_start = tick();
 
@@ -333,12 +358,11 @@ private:
 	const node_t* _parent;
 
 	Children _children;
-	typename Children::size_type _c;
 
 	time_point _start;
 	time_point _stop;
 
-	std::string_view _name;
+	std::string _name;
 };
 
 using NanoNode = Node<std::chrono::nanoseconds>;
@@ -354,24 +378,21 @@ class Timer: public util::JSONStream {
 public:
 	using node_t = Node<Duration>;
 
-	constexpr Timer(std::string_view name):
-	_node(name) {
+	constexpr Timer(const std::string& name):
+	_node(new node_t(name)),
+	_name(name) {
 	}
 
-	constexpr void start(std::string_view name) {
-		// The ACTUAL CALL to _node.reset() is deferred until this point, so that after calling
-		// the Timer's reset(), its "state" remains (and be queried or copied into a Profile).
-		if(_reset) {
-			_node.reset();
+	~Timer() {
+		if(_node) delete _node;
+	}
 
-			_reset = false;
-		}
-
+	constexpr void start(const std::string& name) {
 		// If this is the FIRST start, go ahead and start our "toplevel" timer, which will hold this
 		// first (requested) timer AND all subsequent children.
 		//
 		// TODO: The constructor currently sets this... but SHOULD it?
-		if(!_n) _n = &_node.start();
+		if(!_n) _n = &_node->start();
 
 		_n = &_n->child(name).start();
 	}
@@ -379,7 +400,7 @@ public:
 	constexpr void stop() {
 		// This is the "stop()" action that corresponds to the implicit "start."
 		// TODO: Should this be done inside reset()?
-		if(!_n) _node.stop();
+		if(!_n) _node->stop();
 
 		else if(!_n->duration()) {
 			_n = const_cast<node_t*>(_n->stop().parent());
@@ -387,26 +408,22 @@ public:
 	}
 
 	// This calls the necessary final "stop" (which we need beceause of the implicit "start" before
-	// creating the first child), and sets a boolean flag indicating that the next time this
-	// object's start() method is called all of the internal Node data should be reset. This is
-	// necessary so that AFTER calling reset() on this Timer, the caller can continue to safely
-	// query the Node graph until they "start" again.
-	//
-	// Furthermore, we return a const reference to the internal node_t in its "final" state so that
-	// external code can query any relevant information (or, in the case of Profile, make a copy for
-	// analysis later).
-	constexpr const auto& reset() {
+	// creating the first child), and then creates a completely new node_t.
+	constexpr auto* reset() {
 		stop();
 
-		_reset = true;
+		auto* r = _node;
 
-		return _node;
+		_node = new node_t(_name);
+		_n = nullptr;
+
+		return r;
 	}
 
 	// TODO: This isn't enough; at a minimum, it needs to include the same extra fields that Profile
 	// does (unit and duration).
 	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
-		_node.json(os, depth, comma);
+		_node->json(os, depth, comma);
 
 		return os;
 	}
@@ -414,9 +431,10 @@ public:
 private:
 	friend class Profile<node_t>;
 
-	node_t _node;
+	node_t* _node = nullptr;
 	node_t* _n = nullptr;
-	bool _reset = false;
+
+	std::string _name;
 };
 
 using NanoTimer = Timer<std::chrono::nanoseconds>;
@@ -429,16 +447,24 @@ class Profile: public util::JSONStream {
 public:
 	using node_t = Node;
 	using duration_t = typename node_t::duration_t;
-	using data_t = std::deque<node_t>;
+	using data_t = std::deque<node_t*>;
 
 	// TODO: It will likely be more performant to use the preallocation constructor for deque.
 	Profile(size_t size):
 	_size(size) {
 	}
 
+	~Profile() {
+		for(auto* n : _data) delete n;
+	}
+
 	// Copies an existing Node object into the data history.
-	constexpr void add(const node_t& node) {
-		if(_data.size() >= _size) _data.pop_back();
+	constexpr void add(node_t* node) {
+		if(_data.size() >= _size) {
+			delete _data.back();
+
+			_data.pop_back();
+		}
 
 		_data.push_front(node);
 	}
@@ -446,9 +472,9 @@ public:
 	// Copies the "managed" Node held inside a Timer object into the data history.
 	//
 	// TODO: Should this implictly call reset() on the Timer instance?
-	constexpr void add(const Timer<duration_t>& timer) {
+	/* constexpr void add(const Timer<duration_t>& timer) {
 		add(timer._node);
-	}
+	} */
 
 	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
@@ -463,13 +489,13 @@ public:
 			// [](typename duration_t::rep l, const node_t& r) {
 			// TODO: Both Clang 12 and GCC 10 let me get away with using "auto" here in C++17 mode;
 			// I'm not sure if that's a bug or a bonus. :)
-			[](auto l, const auto& r) { return l + r.duration(); }
+			[](auto l, const auto* r) { return l + r->duration(); }
 		) / static_cast<typename duration_t::rep>(_data.size());
 
 		ind(1) << "\"duration\": " << average << "," << std::endl;
 		ind(1) << "\"data\": [" << std::endl;
 
-		for(size_t i = 0; i < _data.size(); i++) _data[i].json(
+		for(size_t i = 0; i < _data.size(); i++) _data[i]->json(
 			os,
 			2,
 			i >= _data.size() - 1 ? false : true
