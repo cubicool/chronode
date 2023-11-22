@@ -84,7 +84,7 @@ namespace util {
 		// WHOA! Why the "comma" argument, you ask? Well, this is useful when iterating over a
 		// group of json()'able things, where you often WANT a comma (except for the LAST element).
 		// This could be done other ways, of course... but using it as a parameter simplifies the
-		// caller's code (to a slight degree).
+		// caller's code (to a slight degree). If C++ had something like a string "join" function...
 		virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const = 0;
 
 		std::string json(size_t depth=0, bool comma=false) const {
@@ -134,9 +134,9 @@ class Node: public util::JSONStream {
 public:
 	using duration_t = Duration;
 	using node_t = Node<duration_t>;
+	using node_ptr = std::unique_ptr<node_t>;
 
 	// using Children = std::deque<node_t>;
-	// using Children = std::vector<node_t>;
 	using Children = std::list<node_t>;
 	// using Path = std::deque<const std::string&>;
 
@@ -173,6 +173,10 @@ public:
 	virtual ~Node() {
 	}
 
+	// The compiler SHOULD optimize this for us, and there's no need to use std::move().
+	static constexpr auto make_unique(const std::string& name, const node_t* parent=nullptr) {
+		return std::make_unique<node_t>(name, parent);
+	}
 
 	/* // TODO: I'd prefer making this private, and doing an explicity copy() method.
 	constexpr Node(const node_t& n):
@@ -334,19 +338,13 @@ public:
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
 
 		ind() << "{" << std::endl;
-		// ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
-		ind(1) << "\"name\": \"" << _name << " (" << this << ")\"," << std::endl;
+		ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
+		// ind(1) << "\"name\": \"" << _name << " (" << this << ")\"," << std::endl;
 		ind(1) << "\"start\": " << _start.count() << "," << std::endl;
 		ind(1) << "\"stop\": " << _stop.count() << "," << std::endl;
 		ind(1) << "\"duration\": " << duration() << "," << std::endl;
-		ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
+		// ind(1) << "\"parent\": \"" << (_parent ? _parent->name() : "null") << " (" << _parent << ")\"," << std::endl;
 		ind(1) << "\"children\": [" << std::endl;
-
-		/* for(size_t i = 0; i < _children.size(); i++) _children[i].json(
-			os,
-			depth + 2,
-			i < _children.size() - 1
-		); */
 
 		for(const auto& c : _children) c.json(
 			os,
@@ -382,22 +380,25 @@ using NanoNode = Node<std::chrono::nanoseconds>;
 using MicroNode = Node<std::chrono::microseconds>;
 using MilliNode = Node<std::chrono::milliseconds>;
 
-template<typename Node>
-class Profile;
+// template<typename Node>
+// class Profile;
 
 // template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
 template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
 class Timer: public util::JSONStream {
 public:
 	using node_t = Node<Duration>;
+	// using node_ptr = std::unique_ptr<node_t>;
 
 	constexpr Timer(const std::string& name):
-	_node(new node_t(name)),
+	// _node(new node_t(name)),
+	// _node(std::make_unique<node_t>(name)),
+	_node(node_t::make_unique(name)),
 	_name(name) {
 	}
 
-	~Timer() {
-		if(_node) delete _node;
+	virtual ~Timer() {
+		// if(_node) delete _node;
 	}
 
 	constexpr void start(const std::string& name) {
@@ -422,12 +423,15 @@ public:
 
 	// This calls the necessary final "stop" (which we need beceause of the implicit "start" before
 	// creating the first child), and then creates a completely new node_t.
-	constexpr auto* reset() {
+	constexpr auto reset() {
 		stop();
 
-		auto* r = _node;
+		auto r = std::move(_node);
 
-		_node = new node_t(_name);
+		// _node = new node_t(_name);
+		// _node = node_ptr(new node_t(_name));
+		// _node = std::make_unique<node_t>(_name);
+		_node = node_t::make_unique(_name);
 		_n = nullptr;
 
 		return r;
@@ -444,7 +448,8 @@ public:
 private:
 	// friend class Profile<node_t>;
 
-	node_t* _node = nullptr;
+	// std::unique_ptr<node_t> _node = nullptr;
+	typename node_t::node_ptr _node = nullptr;
 	node_t* _n = nullptr;
 
 	std::string _name;
@@ -461,33 +466,34 @@ public:
 	using node_t = Node;
 	using duration_t = typename node_t::duration_t;
 	// using data_t = std::deque<node_t*>;
-	using data_t = std::list<node_t*>;
+	// using data_t = std::list<node_t*>;
+	using data_t = std::list<typename node_t::node_ptr>;
 
 	Profile(size_t size):
 	_size(size) {
 	}
 
 	~Profile() {
-		for(auto* n : _data) delete n;
+		// for(auto* n : _data) delete n;
 	}
 
 	// Copies an existing Node object into the data history.
-	constexpr void add(node_t* node) {
+	constexpr void add(typename node_t::node_ptr node) {
 		if(_data.size() >= _size) {
-			delete _data.back();
+			// delete _data.back();
 
 			_data.pop_back();
 		}
 
-		_data.push_front(node);
+		_data.push_front(std::move(node));
 	}
 
 	// Copies the "managed" Node held inside a Timer object into the data history.
 	//
 	// TODO: Should this implictly call reset() on the Timer instance?
-	/* constexpr void add(const Timer<duration_t>& timer) {
-		add(timer._node);
-	} */
+	constexpr void add(Timer<duration_t>& timer) {
+		add(timer.reset());
+	}
 
 	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
 		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
@@ -502,19 +508,13 @@ public:
 			// [](typename duration_t::rep l, const node_t& r) {
 			// TODO: Both Clang 12 and GCC 10 let me get away with using "auto" here in C++17 mode;
 			// I'm not sure if that's a bug or a bonus. :)
-			[](auto l, const auto* r) { return l + r->duration(); }
+			[](auto l, const auto& r) { return l + r->duration(); }
 		) / static_cast<typename duration_t::rep>(_data.size());
 
 		ind(1) << "\"duration\": " << average << "," << std::endl;
 		ind(1) << "\"data\": [" << std::endl;
 
-		/* for(size_t i = 0; i < _data.size(); i++) _data[i]->json(
-			os,
-			2,
-			i >= _data.size() - 1 ? false : true
-		); */
-
-		for(const auto* d : _data) d->json(
+		for(const auto& d : _data) d->json(
 			os,
 			depth + 2,
 			(d == _data.back() ? false : true)

@@ -60,9 +60,10 @@ int main(int argc, char** argv) {
 
 		std::cout << n << std::endl;
 
-		auto nc = n;
+		// TODO: No copying, moving, or assigning is (currently) supported.
+		// auto nc = n;
 
-		std::cout << nc << std::endl;
+		// std::cout << nc << std::endl;
 	}
 
 	return 0;

@@ -69,9 +69,10 @@ int main(int argc, char** argv) {
 
 			t.start("submain"); sf(i); t.stop();
 
-			p.add(t.reset());
+			p.add(t);
+			// p.add(t.reset());
 
-			// auto* tmp = t.reset();
+			// auto tmp = t.reset();
 			// std::cout << *tmp << std::endl;
 			// delete tmp;
 		}
