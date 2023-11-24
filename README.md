@@ -26,6 +26,8 @@ version, it will be as easy as using a named pipe.
 
 # TODO
 
+- When CHRONODE_ENABLED isn't set, how should things resolve (with the minimum
+  amount of change fron the user)?
 - What should happen when two or more children have the same name? Anything?
 - There is a bug in Node where it always thinks the number of ACTIVE children is
   however large the deque is; instead, it should be whatever the value of `_c`

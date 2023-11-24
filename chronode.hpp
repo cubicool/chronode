@@ -3,7 +3,6 @@
 #include <chrono>
 #include <thread>
 #include <utility>
-#include <deque>
 #include <list>
 #include <sstream>
 #include <numeric>
@@ -13,10 +12,10 @@
 
 #define CHRONODE if constexpr(chronode::ENABLED)
 #define CHRONODE_MILLITIMER(cn) extern chronode::MilliTimer cn;
-#define CHRONODE_MILLITIMER_INIT(cn, n) chronode::MilliTimer cn(n);
+#define CHRONODE_MILLITIMER_INIT(cn) chronode::MilliTimer cn(#cn);
 #define CHRONODE_START(cn, n) CHRONODE cn.start(n);
 #define CHRONODE_STOP(cn) CHRONODE cn.stop();
-#define CHRONODE_DATA(cn, dd) CHRONODE cn.data(d);
+// #define CHRONODE_RESET(cn) CHRONODE cn.reset();
 
 using namespace std::chrono_literals;
 
@@ -35,6 +34,7 @@ namespace chronode {
 
 using std::this_thread::sleep_for;
 using Clock = std::chrono::steady_clock;
+// using Clock = std::chrono::high_resolution_clock;
 
 static constexpr auto tick = Clock::now;
 
@@ -136,7 +136,6 @@ public:
 	using node_t = Node<duration_t>;
 	using node_ptr = std::unique_ptr<node_t>;
 
-	// using Children = std::deque<node_t>;
 	using Children = std::list<node_t>;
 	// using Path = std::deque<const std::string&>;
 
@@ -178,7 +177,8 @@ public:
 		return std::make_unique<node_t>(name, parent);
 	}
 
-	/* // TODO: I'd prefer making this private, and doing an explicity copy() method.
+#if 0
+	// TODO: I'd prefer making this private, and doing an explicity copy() method.
 	constexpr Node(const node_t& n):
 	_parent(nullptr),
 	_start(n._start),
@@ -191,9 +191,8 @@ public:
 
 			_children.back()._parent = this;
 		}
-	} */
+	}
 
-#if 0
 	node_t& operator=(const node_t& n) {
 		_parent = nullptr;
 		_start = n._start;
@@ -202,25 +201,12 @@ public:
 
 		return *this;
 	}
-#endif
 
-	/* // TODO: See copy-constructor above.
+	// TODO: See copy-constructor above.
 	constexpr auto copy() const {
 		if(_parent) throw exception("Cannot copy a parented Node.");
 
 		return Node(*this);
-	} */
-
-#if 0
-	// This IMMEDIATELY resets all the internal Node data; it's worth mentioning, because the
-	// Timer's version of reset() does NOT.
-	constexpr node_t& reset() {
-		_start = _stop = time_point{};
-		_c = 0;
-
-		for(auto& c : _children) c.reset();
-
-		return *this;
 	}
 #endif
 
@@ -233,12 +219,6 @@ public:
 	}
 
 	constexpr auto& child(const std::string& name) {
-		/* if(_c >= _children.size()) _children.emplace_back(name, this);
-
-		else _children[_c]._name = name;
-
-		_c++; */
-
 		_children.emplace_back(name, this);
 
 		return _children.back();
@@ -362,8 +342,8 @@ private:
 	// These just prove to me that I'm not invoking unnecesary construction.
 	Node() = delete;
 	Node(const node_t&) = delete;
-	node_t& operator=(const node_t&) = delete;
 	Node(node_t&&) noexcept = delete;
+	node_t& operator=(const node_t&) = delete;
 	node_t& operator=(node_t&&) noexcept = delete;
 
 	const node_t* _parent;
@@ -380,25 +360,15 @@ using NanoNode = Node<std::chrono::nanoseconds>;
 using MicroNode = Node<std::chrono::microseconds>;
 using MilliNode = Node<std::chrono::milliseconds>;
 
-// template<typename Node>
-// class Profile;
-
 // template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
 template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
 class Timer: public util::JSONStream {
 public:
 	using node_t = Node<Duration>;
-	// using node_ptr = std::unique_ptr<node_t>;
 
 	constexpr Timer(const std::string& name):
-	// _node(new node_t(name)),
-	// _node(std::make_unique<node_t>(name)),
 	_node(node_t::make_unique(name)),
 	_name(name) {
-	}
-
-	virtual ~Timer() {
-		// if(_node) delete _node;
 	}
 
 	constexpr void start(const std::string& name) {
@@ -413,6 +383,7 @@ public:
 
 	constexpr void stop() {
 		// This is the "stop()" action that corresponds to the implicit "start."
+		//
 		// TODO: Should this be done inside reset()?
 		if(!_n) _node->stop();
 
@@ -428,9 +399,6 @@ public:
 
 		auto r = std::move(_node);
 
-		// _node = new node_t(_name);
-		// _node = node_ptr(new node_t(_name));
-		// _node = std::make_unique<node_t>(_name);
 		_node = node_t::make_unique(_name);
 		_n = nullptr;
 
@@ -446,9 +414,6 @@ public:
 	}
 
 private:
-	// friend class Profile<node_t>;
-
-	// std::unique_ptr<node_t> _node = nullptr;
 	typename node_t::node_ptr _node = nullptr;
 	node_t* _n = nullptr;
 
@@ -465,25 +430,15 @@ class Profile: public util::JSONStream {
 public:
 	using node_t = Node;
 	using duration_t = typename node_t::duration_t;
-	// using data_t = std::deque<node_t*>;
-	// using data_t = std::list<node_t*>;
 	using data_t = std::list<typename node_t::node_ptr>;
 
-	Profile(size_t size):
+	constexpr Profile(size_t size):
 	_size(size) {
-	}
-
-	~Profile() {
-		// for(auto* n : _data) delete n;
 	}
 
 	// Copies an existing Node object into the data history.
 	constexpr void add(typename node_t::node_ptr node) {
-		if(_data.size() >= _size) {
-			// delete _data.back();
-
-			_data.pop_back();
-		}
+		if(_data.size() >= _size) _data.pop_back();
 
 		_data.push_front(std::move(node));
 	}

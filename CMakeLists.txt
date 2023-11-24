@@ -85,7 +85,7 @@ else(WIN32)
 endif()
 
 # set(CHRONODE_TESTS "node" "timer" "timer-macro")
-set(CHRONODE_TESTS "node" "timer")
+set(CHRONODE_TESTS "node" "timer" "timer-macro")
 
 # list(APPEND CHRONODE_TESTS
 # 	(

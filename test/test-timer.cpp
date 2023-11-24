@@ -74,7 +74,6 @@ int main(int argc, char** argv) {
 
 			// auto tmp = t.reset();
 			// std::cout << *tmp << std::endl;
-			// delete tmp;
 		}
 
 		std::cout << p << std::endl;

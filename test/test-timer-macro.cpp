@@ -15,7 +15,7 @@ template <typename T, T N>
 [[maybe_unused]] constexpr auto r_10 = []() { return rand_1n<size_t, 10>(); };
 [[maybe_unused]] constexpr auto r_500ms = []() { return std::chrono::milliseconds(rand_1n<size_t, 500>()); };
 
-CHRONODE_MILLITIMER_INIT(T, "MilliTimer");
+CHRONODE_MILLITIMER_INIT(T);
 
 int main(int argc, char** argv) {
 	CHRONODE_START(T, "foo")
@@ -41,24 +41,12 @@ int main(int argc, char** argv) {
 	chronode::sleep_for(50ms);
 
 	CHRONODE_STOP(T);
-	CHRONODE_STOP(T);
 
+	// TODO: This really needs to be improved.
 	CHRONODE {
-		chronode::report::ostream_json(T.node(), std::cout);
+		auto t = T.reset();
 
-#if 0
-		const auto& rs = chronode::report::rows_spans(T.node());
-
-		for(size_t i = 0; i < rs.size(); i++) {
-			const auto& r = rs[i];
-
-			if(!i) std::cout << "RANGE: " << r[0].first << " - " << r[0].second << std::endl;
-
-			else {
-				std::cout << "TODO: row " << i << "(" << r.size() << ")" << std::endl;
-			}
-		}
-#endif
+		std::cout << *t << std::endl;
 	}
 
 	return 0;
