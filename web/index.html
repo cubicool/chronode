@@ -47,10 +47,13 @@
 <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.js.css"> -->
 <script src="lib/materialize.js"></script>
 <script src="lib/chronode.js"></script>
+<script src="lib/chronode0.js"></script>
 
 <script>
 	var DATA = [];
 	var INDEX = 0;
+	var TEST = {};
+	var PROFILE = {};
 
 	// TODO: This needs to be MOVED! The variable "canvas" is a global from chronode.js...
 	// canvasScalePPI(canvas.width, canvas.height);
@@ -127,7 +130,7 @@
 		if(DATA.length > n - 1) {
 			console.log(`paginateShowContent:chronode(${n - 1})`);
 
-			chronode("_canvas", DATA[n - 1]);
+			chronode("_canvas", DATA[n - 1], PROFILE.depth);
 		}
 	}
 
@@ -148,11 +151,15 @@
 				const reader = new FileReader();
 
 				reader.onload = function(ev) {
-					DATA = JSON.parse(ev.target.result);
+					PROFILE = JSON.parse(ev.target.result);
+					DATA = PROFILE["data"];
 
-					if(!Array.isArray(DATA)) DATA = [DATA];
+					// if(!Array.isArray(DATA)) DATA = [DATA];
 
-					chronode("_canvas", DATA[0]);
+					let tmpcanvas = document.getElementById("_canvas");
+					let tmpc = tmpcanvas.getContext("2d");
+					// chronode("_canvas", DATA[0], PROFILE.depth);
+					chronode0.chronode(tmpc, tmpcanvas.width, tmpcanvas.height, PROFILE);
 
 					paginateCreateList(DATA.length);
 					paginateShowContent(1);
@@ -166,41 +173,243 @@
 	const test = new URL(location.href).searchParams.get("test");
 
 	if(test) {
-		chronode("_canvas", {
-			"id": "MilliTimer",
-			"start": 623959875,
-			"stop": 623959986,
-			"children": [
+		TEST = {
+			"unit": "ms",
+			"depth": 3,
+			"duration": 321,
+			"data": [
 				{
-					"id": "foo",
-					"start": 623959875,
-					"stop": 623959936,
+					"name": "timer",
+					"start": 840121372,
+					"stop": 840121774,
+					"duration": 402,
 					"children": [
 						{
-							"id": "bar",
-							"start": 623959885,
-							"stop": 623959936,
+							"name": "main0",
+							"start": 840121372,
+							"stop": 840121724,
+							"duration": 351,
 							"children": [
 								{
-									"id": "baz",
-									"start": 623959905,
-									"stop": 623959936,
+									"name": "A",
+									"start": 840121422,
+									"stop": 840121573,
+									"duration": 150,
+									"children": [
+										{
+											"name": "a0",
+											"start": 840121472,
+											"stop": 840121523,
+											"duration": 50,
+											"children": [
+											]
+										},
+										{
+											"name": "a1",
+											"start": 840121523,
+											"stop": 840121573,
+											"duration": 50,
+											"children": [
+											]
+										}
+									]
+								},
+								{
+									"name": "B",
+									"start": 840121573,
+									"stop": 840121674,
+									"duration": 100,
+									"children": [
+										{
+											"name": "b",
+											"start": 840121623,
+											"stop": 840121674,
+											"duration": 50,
+											"children": [
+											]
+										}
+									]
+								},
+								{
+									"name": "C",
+									"start": 840121674,
+									"stop": 840121724,
+									"duration": 50,
 									"children": [
 									]
 								}
+							]
+						},
+						{
+							"name": "main1",
+							"start": 840121724,
+							"stop": 840121774,
+							"duration": 50,
+							"children": [
 							]
 						}
 					]
 				},
 				{
-					"id": "foofoo",
-					"start": 623959936,
-					"stop": 623959986,
+					"name": "timer",
+					"start": 840121051,
+					"stop": 840121372,
+					"duration": 321,
 					"children": [
+						{
+							"name": "main0",
+							"start": 840121051,
+							"stop": 840121332,
+							"duration": 281,
+							"children": [
+								{
+									"name": "A",
+									"start": 840121091,
+									"stop": 840121211,
+									"duration": 120,
+									"children": [
+										{
+											"name": "a0",
+											"start": 840121131,
+											"stop": 840121171,
+											"duration": 40,
+											"children": [
+											]
+										},
+										{
+											"name": "a1",
+											"start": 840121171,
+											"stop": 840121211,
+											"duration": 40,
+											"children": [
+											]
+										}
+									]
+								},
+								{
+									"name": "B",
+									"start": 840121211,
+									"stop": 840121291,
+									"duration": 80,
+									"children": [
+										{
+											"name": "b",
+											"start": 840121251,
+											"stop": 840121291,
+											"duration": 40,
+											"children": [
+											]
+										}
+									]
+								},
+								{
+									"name": "C",
+									"start": 840121291,
+									"stop": 840121332,
+									"duration": 40,
+									"children": [
+									]
+								}
+							]
+						},
+						{
+							"name": "main1",
+							"start": 840121332,
+							"stop": 840121372,
+							"duration": 40,
+							"children": [
+							]
+						}
+					]
+				},
+				{
+					"name": "timer",
+					"start": 840120809,
+					"stop": 840121050,
+					"duration": 241,
+					"children": [
+						{
+							"name": "main0",
+							"start": 840120809,
+							"stop": 840121020,
+							"duration": 211,
+							"children": [
+								{
+									"name": "A",
+									"start": 840120839,
+									"stop": 840120930,
+									"duration": 90,
+									"children": [
+										{
+											"name": "a0",
+											"start": 840120869,
+											"stop": 840120899,
+											"duration": 30,
+											"children": [
+											]
+										},
+										{
+											"name": "a1",
+											"start": 840120900,
+											"stop": 840120930,
+											"duration": 30,
+											"children": [
+											]
+										}
+									]
+								},
+								{
+									"name": "B",
+									"start": 840120930,
+									"stop": 840120990,
+									"duration": 60,
+									"children": [
+										{
+											"name": "b",
+											"start": 840120960,
+											"stop": 840120990,
+											"duration": 30,
+											"children": [
+											]
+										}
+									]
+								},
+								{
+									"name": "C",
+									"start": 840120990,
+									"stop": 840121020,
+									"duration": 30,
+									"children": [
+									]
+								}
+							]
+						},
+						{
+							"name": "main1",
+							"start": 840121020,
+							"stop": 840121050,
+							"duration": 30,
+							"children": [
+							]
+						}
 					]
 				}
 			]
-		});
+		};
+
+		// chronode("_canvas", TEST.data, TEST.depth);
+		let tmpcanvas = document.getElementById("_canvas");
+		let tmpc = tmpcanvas.getContext("2d");
+
+		const w = tmpcanvas.clientWidth;
+		const h = tmpcanvas.clientHeight;
+
+		tmpcanvas.width = w;
+		tmpcanvas.height = h;
+		// tmpcanvas.style.width = w;
+		// tmpcanvas.style.height = h;
+
+		chronode0.chronode(tmpc, w, h, TEST);
 	}
 </script>
 

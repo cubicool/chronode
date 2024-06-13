@@ -56,8 +56,8 @@ function arcxy(r, a) { return [
 	restore) {}
 } */
 
-var canvas = document.getElementById("_canvas");
-var c = canvas.getContext("2d");
+// var canvas = document.getElementById("_canvas");
+// var c = canvas.getContext("2d");
 
 // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/moveTo
 const CRC2D_moveTo = CanvasRenderingContext2D.prototype.moveTo;
@@ -105,8 +105,8 @@ CanvasRenderingContext2D.prototype.arc = function(x, y, r, s, e, ccw=false) {
 // canvas.width = canvas.clientWidth
 // canvas.height = canvas.clientHeight
 
-var w = 0; // canvas.width;
-var h = 0; // canvas.height;
+// var w = 0; // canvas.width;
+// var h = 0; // canvas.height;
 
 function canvasGrid(gw, gh) {
 	c.save();
@@ -116,13 +116,13 @@ function canvasGrid(gw, gh) {
 	// c.lineWidth = 3;
 	// c.strokeStyle = "rgba(1, 1, 1, 1)";
 
-	for(var x = gw; x < w; x += gw) {
+	for(let x = gw; x < w; x += gw) {
 		c.moveTo(x, 0);
 		c.lineTo(x, h);
 		c.stroke();
 	}
 
-	for(var y = gh; y < h; y += gh) {
+	for(let y = gh; y < h; y += gh) {
 		c.moveTo(0, y);
 		c.lineTo(w, y);
 		c.stroke();
@@ -155,11 +155,11 @@ function canvasScalePPI(width, height) {
 	c.scale(DPR, DPR);
 }
 
-function canvasResize() {
+function canvasResize(canvas) {
 	console.log("++ resize");
 
-	w = canvas.clientWidth;
-	h = canvas.clientHeight;
+	const w = canvas.clientWidth;
+	const h = canvas.clientHeight;
 
 	// canvas.width = Math.floor(w * DPR);
 	// canvas.height = Math.floor(h * DPR);
@@ -172,6 +172,8 @@ function canvasResize() {
 	// canvasDraw();
 
 	console.log("-- resize");
+
+	return [w, h];
 }
 
 // console.log(arcxy(200, 0));
@@ -235,7 +237,7 @@ function canvasDraw() {
 			c.moveTo(0, 0);
 			c.lineTo(r, 0);
 
-			for(var i = 0; i < 3; i++) {
+			for(let i = 0; i < 3; i++) {
 				c.rotate(-(GoldenAngle / 3));
 				c.lineTo(r, 0);
 			}
@@ -256,27 +258,91 @@ function canvasDraw() {
 // TODO: Why can't we call "canvas.addEventListener"?
 // window.addEventListener("resize", canvasResize);
 
-canvasResize();
+// canvasResize();
+// canvasScalePPI(canvas.width, canvas.height);
 
-function chronode(canvasName, node) {
-	var canvas = document.getElementById(canvasName);
-	var c = canvas.getContext("2d");
+function chronode(canvasName, node, rows) {
+	let canvas = document.getElementById(canvasName);
+	let c = canvas.getContext("2d");
+
+	const [w, h] = canvasResize(canvas);
 
 	// We treat the first Node as the "master", using its members as guides for the extents of
 	// the visualization.
 	const name = node.name;
 	const start = node.start;
 	const stop = node.stop;
-	const PPU = canvas.width / (stop - start);
+	// const PPU = canvas.width / (stop - start);
+	const PPU = w / (stop - start);
+
+	const rowHeight = h / rows; // canvas.height / rows;
 
 	console.log(`Recursing: ${node.name}`);
 	console.log(`Range: start=${start}, stop=${stop}`);
 	console.log(`Span: ${stop - start}ms`);
-	console.log(`PPU (Pixels Per Unit): ${canvas.width / (stop - start)}px`);
+	// console.log(`PPU (Pixels Per Unit): ${canvas.width / (stop - start)}px`);
+	console.log(`PPU (Pixels Per Unit): ${w / (stop - start)}px`);
+	console.log(`Rows: ${rows}`);
 
-	canvasScalePPI(canvas.width, canvas.height);
+	for(let i = 0; i < rows; i++) {
+		console.log(`Drawing row ${i}...`);
 
-	function _chronode(node, depth=0) {
+		const yStart = i * rowHeight;
+		const yEnd = yStart + rowHeight;
+
+		c.fillStyle = `rgba(100, 150, 255, 1)`;
+		c.fillRect(0, yStart, w, yEnd - yStart);
+
+		const centerX = w / 2;
+		const centerY = yStart + rowHeight / 2;
+
+		/* c.beginPath();
+		c.arc(centerX, centerY, 10, 0, 2 * Math.PI);
+		c.fillStyle = "red";
+		c.fill(); */
+
+		c.beginPath();
+		c.moveTo(0, yEnd);
+		c.lineTo(w, yEnd);
+		c.strokeStyle = "white";
+		c.lineWidth = 2;
+		c.stroke();
+	}
+
+	function _chronode(n, depth=0) {
+		const y = (depth * rowHeight) + (rowHeight / 2);
+		const x0 = Math.round((n.start - start) * PPU);
+		const x1 = Math.round((n.stop - start) * PPU);
+
+		console.log(`_chronde: ${n.name} @ ${depth}`);
+
+		c.beginPath();
+		c.moveTo(x0, y);
+		c.lineTo(x1, y);
+		c.strokeStyle = "red";
+		c.lineWidth = 4;
+		c.stroke();
+
+		for(var x of [x0, x1]) {
+			// console.log(`Doing: x=${x}, y=${y}`);
+
+			c.beginPath();
+			c.arc(x, y, 10, 0, 2 * Math.PI);
+			c.fillStyle = "red";
+			c.fill();
+			c.closePath();
+		}
+
+		for(let i = 0; i < n.children.length; i++) {
+			_chronode(n.children[i], depth + 1);
+		}
+	}
+
+	_chronode(node.children[0], 0);
+
+	// canvasScalePPI(canvas.width, canvas.height);
+
+	/* function _chronode(node, depth=0) {
 		// If the depth is 0, it's the "master" node we already queried above; so, do nothing
 		// except handle the children.
 		// if(depth) {
@@ -334,12 +400,12 @@ function chronode(canvasName, node) {
 		for(var i = 0; i < node.children.length; i++) {
 			_chronode(node.children[i], depth + 1);
 		}
-	}
+	} */
 
-	c.save();
+	/* c.save();
 	c.fillStyle = "#999";
 	c.fillRect(0, 0, canvas.width, canvas.height);
 	c.restore();
 
-	_chronode(node);
+	_chronode(node); */
 }
