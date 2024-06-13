@@ -59,6 +59,7 @@ int main(int argc, char** argv) {
 		n.stop();
 
 		std::cout << n << std::endl;
+		std::cout << "Depth: " << n.depth() << std::endl;
 
 		// TODO: No copying, moving, or assigning is (currently) supported.
 		// auto nc = n;

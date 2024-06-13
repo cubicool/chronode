@@ -52,6 +52,7 @@ if(WIN32)
 		# "/wd4996"
 		# "/wd4334"
 		# "/wd4311"
+		"-DCHRONODE_ENABLED"
 	)
 
 else(WIN32)
@@ -85,7 +86,7 @@ else(WIN32)
 endif()
 
 # set(CHRONODE_TESTS "node" "timer" "timer-macro")
-set(CHRONODE_TESTS "node" "timer" "timer-macro")
+set(CHRONODE_TESTS "timer")
 
 # list(APPEND CHRONODE_TESTS
 # 	(

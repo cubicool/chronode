@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
 		auto t = chronode::MilliTimer("timer");
 
 		for(auto i = 0; i < 5; i++) {
-			t.start("main"); sf(i); {
+			t.start("main0"); sf(i); {
 				t.start("A"); sf(i); {
 					t.start("a0"); sf(i); t.stop();
 					t.start("a1"); sf(i); t.stop();
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
 				t.start("C"); sf(i); t.stop();
 			} t.stop();
 
-			t.start("submain"); sf(i); t.stop();
+			t.start("main1"); sf(i); t.stop();
 
 			p.add(t);
 			// p.add(t.reset());

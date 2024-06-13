@@ -8,8 +8,6 @@
 #include <numeric>
 #include <iomanip>
 
-#include <iostream>
-
 #define CHRONODE if constexpr(chronode::ENABLED)
 #define CHRONODE_MILLITIMER(cn) extern chronode::MilliTimer cn;
 #define CHRONODE_MILLITIMER_INIT(cn) chronode::MilliTimer cn(#cn);
@@ -128,6 +126,8 @@ constexpr bool is_duration_v = std::is_same_v<
 	std::chrono::duration<typename Duration::rep, typename Duration::period>
 >;
 
+// TODO: Add annotation/comment support.
+// TODO: Add styling info?
 // template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
 template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
 class Node: public util::JSONStream {
@@ -161,7 +161,6 @@ public:
 	/* // TODO: It'll be necessary to have a default ctor if I want to use preallocation in Profile.
 	constexpr Node():
 	_parent(nullptr) {
-		std::cout << "CTOR()" << std::endl;
 	} */
 
 	constexpr Node(const std::string& name, const node_t* parent=nullptr):
@@ -184,8 +183,6 @@ public:
 	_start(n._start),
 	_stop(n._stop),
 	_name(n._name) {
-		std::cout << "COPYCTOR(): " << n._name << std::endl;
-
 		for(const auto& c : n._children) {
 			_children.emplace_back(c);
 
@@ -314,8 +311,16 @@ public:
 		return _stop.count();
 	}
 
-	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
-		auto ind = [&os, depth](size_t ex=0) -> auto& { return util::indent(os, depth + ex); };
+	constexpr auto depth() const {
+		size_t d = 0;
+
+		_depth(this, 0, d);
+
+		return d;
+	}
+
+	virtual std::ostream& json(std::ostream& os, size_t depth_=0, bool comma=false) const {
+		auto ind = [&os, depth_](size_t ex=0) -> auto& { return util::indent(os, depth_ + ex); };
 
 		ind() << "{" << std::endl;
 		ind(1) << "\"name\": \"" << _name << "\"," << std::endl;
@@ -328,7 +333,7 @@ public:
 
 		for(const auto& c : _children) c.json(
 			os,
-			depth + 2,
+			depth_ + 2,
 			(&c == &_children.back() ? false : true)
 		);
 
@@ -338,14 +343,7 @@ public:
 		return os;
 	}
 
-private:
-	// These just prove to me that I'm not invoking unnecesary construction.
-	Node() = delete;
-	Node(const node_t&) = delete;
-	Node(node_t&&) noexcept = delete;
-	node_t& operator=(const node_t&) = delete;
-	node_t& operator=(node_t&&) noexcept = delete;
-
+protected:
 	const node_t* _parent;
 
 	Children _children;
@@ -354,12 +352,27 @@ private:
 	time_point _stop;
 
 	std::string _name;
+
+private:
+	void _depth(const node_t* node, size_t d, size_t& maxDepth) const {
+		if(d > maxDepth) maxDepth = d;
+
+		for(const auto& n : node->children()) _depth(&n, d + 1, maxDepth);
+	}
+
+	// These just prove to me that I'm not invoking unnecesary construction.
+	Node() = delete;
+	Node(const node_t&) = delete;
+	Node(node_t&&) noexcept = delete;
+	node_t& operator=(const node_t&) = delete;
+	node_t& operator=(node_t&&) noexcept = delete;
 };
 
 using NanoNode = Node<std::chrono::nanoseconds>;
 using MicroNode = Node<std::chrono::microseconds>;
 using MilliNode = Node<std::chrono::milliseconds>;
 
+// TODO: Move the depth() methods here!
 // template<typename Duration, typename = std::enable_if_t<is_duration<Duration>()>>
 template<typename Duration, std::enable_if_t<is_duration_v<Duration>, bool> = true>
 class Timer: public util::JSONStream {
@@ -406,14 +419,14 @@ public:
 	}
 
 	// TODO: This isn't enough; at a minimum, it needs to include the same extra fields that Profile
-	// does (unit and duration).
+	// does (unit and duration). Also, as mentioned above, move the depth here, too.
 	virtual std::ostream& json(std::ostream& os, size_t depth=0, bool comma=false) const {
 		_node->json(os, depth, comma);
 
 		return os;
 	}
 
-private:
+protected:
 	typename node_t::node_ptr _node = nullptr;
 	node_t* _n = nullptr;
 
@@ -455,6 +468,7 @@ public:
 
 		ind() << "{" << std::endl;
 		ind(1) << "\"unit\": \"" << duration_str<duration_t>() << "\"," << std::endl;
+		ind(1) << "\"depth\": " << _data.front()->depth() << "," << std::endl;
 
 		auto average = std::accumulate(
 			_data.begin(),
